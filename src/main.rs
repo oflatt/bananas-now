@@ -27,6 +27,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         Car {
             pos: Vec2::new(100., 0.),
+            vel: Vec2::new(0., 0.),
+            direction: Vec2::new(0., 1.),
         },
     ));
 }
