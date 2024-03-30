@@ -44,8 +44,13 @@ fn sprite_movement(
     _time: Res<Time>,
     mut sprite_position: Query<(&mut Car, &mut Transform)>,
     q_window: Query<&Window, With<PrimaryWindow>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
     for (mut car, mut transform) in &mut sprite_position {
+        if keyboard_input.pressed(KeyCode::KeyA) {
+            car.pos.x -= 1.;
+        }
+
         car.pos.y = cursor_position(&q_window).y;
         transform.translation.y = car.pos.y;
         transform.translation.x = car.pos.x;
