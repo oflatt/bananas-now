@@ -64,6 +64,79 @@ struct AllSprite {
     map: HashMap<String, Handle<Image>>,
 }
 
+fn lv2_turns() -> Vec<(usize, f32)> {
+    // (how many blocks to render, x position of those blocks)
+    vec![
+        (10, 0.0),
+        (10, 50.0),
+        (10, 100.0),
+        (10, 150.0),
+        (10, 200.0),
+        (10, 150.0),
+        (10, 100.0),
+        (10, 50.0),
+        (5, 0.0),
+        (5, -50.0),
+        (5, -100.0),
+        (5, -150.0),
+        (5, -200.0),
+        (5, -250.0),
+        (5, -300.0),
+        (5, -250.0),
+        (5, -200.0),
+        (5, -150.0),
+        (5, -100.0),
+        (5, -50.0),
+        (10, 0.0),
+        (10, 50.0),
+        (10, 100.0),
+        (10, 150.0),
+        (10, 200.0),
+        (10, 150.0),
+        (10, 100.0),
+        (10, 50.0),
+        (5, 0.0),
+        (5, -50.0),
+        (10, -100.0),
+        (10, -150.0),
+        (10, -200.0),
+        (10, -250.0),
+        (10, -300.0),
+        (10, -250.0),
+        (10, -200.0),
+        (10, -150.0),
+        (5, -100.0),
+        (5, -50.0),
+        (10, 0.0),
+        (10, 50.0),
+        (10, 100.0),
+        (10, 150.0),
+        (10, 200.0),
+        (10, 150.0),
+        (10, 100.0),
+        (10, 50.0),
+        (5, 0.0),
+        (5, -50.0),
+        (10, -100.0),
+        (10, -150.0),
+        (10, -200.0),
+        (10, -250.0),
+        (10, -300.0),
+        (10, -250.0),
+        (10, -200.0),
+        (10, -150.0),
+        (5, -100.0),
+        (5, -50.0),
+        (10, 0.0),
+        (10, 50.0),
+        (10, 100.0),
+        (10, 150.0),
+        (10, 200.0),
+        (10, 150.0),
+        (10, 100.0),
+    ]
+}
+
 fn lv1_turns() -> Vec<(usize, f32)> {
     // (how many blocks to render, x position of those blocks)
     vec![
@@ -137,6 +210,7 @@ fn lv1_turns() -> Vec<(usize, f32)> {
     ]
 }
 
+
 fn get_texture(all_sprites: &AllSprite, key: &str) -> Handle<Image> {
     all_sprites.map.get(key).unwrap().clone()
 }
@@ -176,7 +250,7 @@ fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
                             //     ));
                             // }
 
-    for (num, xpos) in lv1_turns() {
+    for (num, xpos) in lv2_turns() {
         let height_of_wall = 200.0;
         let mut transform = Transform::from_xyz(xpos, height_of_wall, -1.);
         transform.scale = Vec3::new(0.1, 0.1, 0.1);
