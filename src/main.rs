@@ -104,7 +104,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             vel: Vec2::new(0., 0.),
             direction: Vec2::new(0., 1.),
             BASE_ACC: 1.,
-            TOP_SPEED: 100.,
+            TOP_SPEED: 40.,
             STEER_INCREMENT_ANGLE: 0.1,
             MAX_STEER_ANGLE: 0.5,
         },
@@ -159,11 +159,15 @@ fn sprite_movement(
         // Finds the car
         if keyboard_input.pressed(KeyCode::KeyA) {
             // Steering speed depends on speed of the car.
-            car.direction = car.direction.rotate(Vec2::from_angle(-0.05 * car.vel.length() / car.TOP_SPEED));
+            car.direction = car
+                .direction
+                .rotate(Vec2::from_angle(0.0005 * car.vel.length()));
         }
         if keyboard_input.pressed(KeyCode::KeyD) {
-            car.direction = car.direction.rotate(Vec2::from_angle(0.05 * car.vel.length() / car.TOP_SPEED));
-        } 
+            car.direction = car
+                .direction
+                .rotate(Vec2::from_angle(-0.0005 * car.vel.length()));
+        }
 
         let car_velocity_update = car.direction * car.BASE_ACC;
         car.vel += car_velocity_update;
@@ -179,7 +183,8 @@ fn sprite_movement(
         transform.translation.y = -200.0;
         transform.translation.x = car.pos.x;
 
-        transform.rotation = Quat::from_rotation_z(car.direction.angle_between(Vec2::new(0., 1.)));
+        transform.rotation =
+            Quat::from_rotation_z(car.direction.to_angle() - std::f32::consts::FRAC_PI_2);
 
         /*
         TODO add accel changes.
