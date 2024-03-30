@@ -177,10 +177,7 @@ fn sprite_movement(
         transform.translation.y = car.pos.y;
         transform.translation.x = car.pos.x;
 
-        // Rotate the sprite toward the direction vector
-        transform.rotate(Quat::from_rotation_z(
-            car.direction.angle_between(Vec2::new(0., 1.)),
-        ));
+        transform.rotation = Quat::from_rotation_z(car.direction.angle_between(Vec2::new(0., 1.)));
 
         /*
         TODO add accel changes.
