@@ -1,11 +1,13 @@
 .PHONY: debug install build serve
 
+WWW = target/www
+
 serve:
 	cargo watch --shell "make debug && python3 -m http.server 8000 -d ${WWW}"
 
 
 serve-andrey:
-	cargo watch --shell "make debug-andrey && python -m http.server 8000 -d ${WWW}"
+	cargo watch --shell "make debug-andrey && python -m http.server 8000 -d target/www"
 
 debug-andrey:
 	cargo build --target wasm32-unknown-unknown
