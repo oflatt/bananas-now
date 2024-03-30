@@ -24,6 +24,7 @@ struct Car {
     vel: Vec2, // Velocity is calculated
     direction: Vec2,
     base_acceleration: f32,
+    top_speed: f32,
     // mass: f32,
 }
 
@@ -77,6 +78,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             vel: Vec2::new(0., 0.),
             direction: Vec2::new(0., 1.),
             base_acceleration: 1.,
+            top_speed: 10.,
         },
     ));
     setup_obstacles(commands, asset_server);
@@ -117,12 +119,21 @@ fn sprite_movement(
         car.pos.y = cursor_position(&q_window).y;
         
         let car_velocity_update = car.direction * car.base_acceleration;
-        car.vel += car_velocity_update;
+        car.vel = car.vel + car_velocity_update;
+
+        // Limit the length of the vector to car.top_speed
+        if car.vel.length() > car.top_speed {
+            car.vel = car.vel.normalize() * car.top_speed;
+        }
+
         car.pos = car.pos + car.vel;
 
-        
+        // Update sprite
         transform.translation.y = car.pos.y;
         transform.translation.x = car.pos.x;
+
+        // Rotate the sprite toward the direction vector
+        transform.rotate(Quat::from_rotation_z(car.direction.angle_between(Vec2::new(0., 1.))));
 
         /*
         TODO add accel changes.
