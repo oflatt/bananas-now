@@ -6,9 +6,12 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, sprite_movement)
+        .add_systems(Update, (sprite_movement, text_update_system))
         .run();
 }
+
+#[derive(Component)]
+struct TimerText;
 
 #[derive(Component)]
 struct Obstacle {
@@ -36,6 +39,26 @@ fn setup_obstacles(mut commands: Commands, asset_server: Res<AssetServer>) {
         Obstacle {
             pos: Vec2::new(100., 0.),
         },
+    ));
+
+    commands.spawn((
+        // Create a TextBundle that has a Text with a single section.
+        TextBundle::from_section(
+            "hello\nbevy!",
+            TextStyle {
+                font_size: 50.0,
+                color: Color::GOLD,
+                ..Default::default()
+            },
+        )
+        .with_text_justify(JustifyText::Center)
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(5.0),
+            bottom: Val::Px(5.0),
+            ..default()
+        }),
+        TimerText,
     ));
 }
 
@@ -100,5 +123,11 @@ fn sprite_movement(
         vel += accel * time.delta_seconds(); // Check if this works in direction we need
         pos += vel * time.delta_seconds();
         */
+    }
+}
+
+fn text_update_system(time: Res<Time>, mut query: Query<&mut Text, With<TimerText>>) {
+    for mut text in &mut query {
+        text.sections[0].value = format!("Time: {}", time.elapsed_seconds().floor());
     }
 }
