@@ -10,6 +10,10 @@ fn main() {
         .run();
 }
 
+struct Obstacle {
+    pos: Vec2,
+}
+
 #[derive(Component)]
 struct Car {
     pos: Vec2,

@@ -7,6 +7,7 @@ serve:
 
 debug:
 	cargo build --target wasm32-unknown-unknown
+	rm -rf ${WWW}
 	wasm-bindgen --no-typescript --target web \
 			--out-dir ${WWW} \
 			--out-name "mygame" \
