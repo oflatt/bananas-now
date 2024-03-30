@@ -35,6 +35,9 @@ fn main() {
 struct PartOfLevel;
 
 #[derive(Component)]
+struct PartOfStart;
+
+#[derive(Component)]
 struct TimerText;
 
 #[derive(Component)]
@@ -165,8 +168,34 @@ fn initial_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             .map
             .insert(asset.to_string(), asset_server.load(asset));
     }
+    setup_start(&mut commands, &all_sprites);
     setup_level(&mut commands, asset_server, &all_sprites);
     commands.spawn(all_sprites);
+}
+
+fn setup_start(commands: &mut Commands, all_sprites: &AllSprite) {
+    // make text "press space to start"
+    let mut transform = Transform::from_xyz(0., 0., 3.);
+    transform.scale = Vec3::new(0.2, 0.2, 0.2);
+    commands.spawn((
+        // Create a TextBundle that has a Text with a single section.
+        TextBundle::from_section(
+            "Press Space to Start",
+            TextStyle {
+                font_size: 50.0,
+                color: Color::GOLD,
+                ..Default::default()
+            },
+        )
+        .with_text_justify(JustifyText::Center)
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Percent(50.0),
+            left: Val::Percent(40.0),
+            ..default()
+        }),
+        PartOfStart,
+    ));
 }
 
 fn setup_level(commands: &mut Commands, asset_server: Res<AssetServer>, all_sprites: &AllSprite) {
@@ -306,11 +335,11 @@ fn collision_update_system(
     }
 
     if game_over {
-
         // delete things part of the level
         for entity in to_delete.iter() {
             commands.entity(entity).despawn();
         }
+        setup_start(&mut commands, sprites.get_single().unwrap());
         setup_level(&mut commands, asset_server, sprites.get_single().unwrap());
         next_state.set(AppState::StartLevel(0));
     }
@@ -319,9 +348,13 @@ fn collision_update_system(
 fn check_start_level(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut next_state: ResMut<NextState<AppState>>,
+    mut to_delete: Query<Entity, With<PartOfStart>>,
+    mut commands: Commands,
 ) {
     if keyboard_input.pressed(KeyCode::Space) {
-        
+        for entity in to_delete.iter() {
+            commands.entity(entity).despawn();
+        }
         next_state.set(AppState::Game);
     }
 }
