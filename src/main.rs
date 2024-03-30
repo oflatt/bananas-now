@@ -101,6 +101,7 @@ fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
                 pos: Vec2::new(kill_xpos, kill_ypos),
             },
             KillerObstacle,
+            PartOfLevel
         ));
     }
 
@@ -216,7 +217,7 @@ fn sprite_movement(
         //     car.vel = car.vel + car.direction * car.BOOST_SPEED;
         // }
 
-        let car_velocity_update = car.direction * car.base_acc;
+        let car_velocity_update = car.direction * car.BASE_ACC;
         car.vel += car_velocity_update;
 
         // Limit the length of the vector to car.top_speed and car.min_speed
