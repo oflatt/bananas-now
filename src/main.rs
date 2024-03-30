@@ -65,6 +65,12 @@ fn cursor_position(q_windows: &Query<&Window, With<PrimaryWindow>>) -> Vec2 {
     }
 }
 
+fn change_sprite(mut sprite: Query<(&mut Handle<ColorMaterial>)>, asset_server: Res<AssetServer>) {
+    for (mut sprite) in &mut sprite {
+        *sprite = asset_server.load("car.png");
+    }
+}
+
 /// The sprite is animated by changing its translation depending on the time that has passed since
 /// the last frame.
 fn sprite_movement(
