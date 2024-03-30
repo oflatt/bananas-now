@@ -13,6 +13,8 @@ fn main() {
 #[derive(Component)]
 struct Car {
     pos: Vec2,
+    vel: Vec2,
+    direction: Vec2,
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
