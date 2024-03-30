@@ -39,7 +39,7 @@ fn lv1_turns() -> Vec<(usize, f32)> {
 }
 
 fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
-    let mut transform = Transform::from_xyz(0., 20., 0.);
+    let mut transform = Transform::from_xyz(0., 20., -1.0);
     transform.scale = Vec3::new(0.1, 0.1, 0.1);
     // place one cone
     /*commands.spawn((
@@ -58,7 +58,7 @@ fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
     let left_side = -400.0;
     // place level obstacles
     for (num, xpos) in lv1_turns() {
-        let mut transform = Transform::from_xyz(xpos, 20., 0.);
+        let mut transform = Transform::from_xyz(xpos, 20., -1.);
         transform.scale = Vec3::new(0.1, 0.1, 0.1);
         for _n in 0..num {
             commands.spawn((
@@ -160,11 +160,8 @@ fn sprite_movement(
             car.direction = Vec2::new(1., 0.);
         } // TODO make this rotation around direction
 
-        // Physics processing
-        car.pos.y = cursor_position(&q_window).y;
-
         let car_velocity_update = car.direction * car.base_acceleration;
-        car.vel = car.vel + car_velocity_update;
+        car.vel += car_velocity_update;
 
         // Limit the length of the vector to car.top_speed
         if car.vel.length() > car.top_speed {
@@ -174,7 +171,7 @@ fn sprite_movement(
         car.pos = car.pos + car.vel;
 
         // Update sprite
-        transform.translation.y = car.pos.y;
+        transform.translation.y = -200.0;
         transform.translation.x = car.pos.x;
 
         transform.rotation = Quat::from_rotation_z(car.direction.angle_between(Vec2::new(0., 1.)));
@@ -193,9 +190,10 @@ fn text_update_system(time: Res<Time>, mut query: Query<&mut Text, With<TimerTex
     }
 }
 
-fn obstacle_update_system(mut obstacles: Query<(&Obstacle, &mut Transform)>) {
+fn obstacle_update_system(mut obstacles: Query<(&Obstacle, &mut Transform)>, mut car: Query<&Car>) {
+    let car = car.iter().next().unwrap();
     for (obstacle, mut transform) in &mut obstacles {
         transform.translation.x = obstacle.pos.x;
-        transform.translation.y = obstacle.pos.y;
+        transform.translation.y = obstacle.pos.y - car.pos.y;
     }
 }
