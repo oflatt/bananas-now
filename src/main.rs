@@ -104,7 +104,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             vel: Vec2::new(0., 0.),
             direction: Vec2::new(0., 1.),
             BASE_ACC: 1.,
-            TOP_SPEED: 10.,
+            TOP_SPEED: 100.,
             STEER_INCREMENT_ANGLE: 0.1,
             MAX_STEER_ANGLE: 0.5,
         },
@@ -159,10 +159,10 @@ fn sprite_movement(
         // Finds the car
         if keyboard_input.pressed(KeyCode::KeyA) {
             // Steering speed depends on speed of the car.
-            car.direction = car.direction.rotate(Vec2::from_angle(-0.05 * car.vel.length()));
+            car.direction = car.direction.rotate(Vec2::from_angle(-0.05 * car.vel.length() / car.TOP_SPEED));
         }
         if keyboard_input.pressed(KeyCode::KeyD) {
-            car.direction = car.direction.rotate(Vec2::from_angle(0.05 * car.vel.length()));
+            car.direction = car.direction.rotate(Vec2::from_angle(0.05 * car.vel.length() / car.TOP_SPEED));
         } 
 
         let car_velocity_update = car.direction * car.BASE_ACC;
