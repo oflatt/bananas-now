@@ -47,9 +47,23 @@ struct AllSprite {
     map: HashMap<String, Handle<Image>>,
 }
 
-fn lv1_turns() -> Vec<(usize, f32)> {
-    vec![(10, 0.0), (20, 50.0), (30, 100.0)]
+fn lv1_turns() -> Vec<(usize, f32)> { // (how many blocks to render, x position of those blocks)
+    vec![(10, 0.0), (20, 50.0), (30, 100.0), (40, 150.0), (50, 200.0),
+         (30, 150.0), (20, 100.0), (10, 50.0), (5, 0.0), (5, -50.0),
+         (10, -100.0), (20, -150.0), (30, -200.0), (40, -250.0), (50, -300.0),
+         (30, -250.0), (20, -200.0), (10, -150.0), (5, -100.0), (5, -50.0),
+         (10, 0.0), (20, 50.0), (30, 100.0), (40, 150.0), (50, 200.0),
+         (30, 150.0), (20, 100.0), (10, 50.0), (5, 0.0), (5, -50.0),
+         (10, -100.0), (20, -150.0), (30, -200.0), (40, -250.0), (50, -300.0),
+         (30, -250.0), (20, -200.0), (10, -150.0), (5, -100.0), (5, -50.0),
+         (10, 0.0), (20, 50.0), (30, 100.0), (40, 150.0), (50, 200.0),
+         (30, 150.0), (20, 100.0), (10, 50.0), (5, 0.0), (5, -50.0),
+         (10, -100.0), (20, -150.0), (30, -200.0), (40, -250.0), (50, -300.0),
+         (30, -250.0), (20, -200.0), (10, -150.0), (5, -100.0), (5, -50.0),
+         (10, 0.0), (20, 50.0), (30, 100.0), (40, 150.0), (50, 200.0),
+         (30, 150.0), (20, 100.0),] 
 }
+
 
 fn get_texture(all_sprites: &AllSprite, key: &str) -> Handle<Image> {
     all_sprites.map.get(key).unwrap().clone()
@@ -74,21 +88,21 @@ fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
     let mut ypos = -100.0;
     let left_side = -400.0; // Offset from the center coord of cones
     // place level obstacles
-    for (kill_ypos, kill_xpos) in lv1_killcones() {
-        let mut transform = Transform::from_xyz(kill_xpos, kill_ypos, -1.0);
-        transform.scale = Vec3::new(0.2, 0.2, 0.2);
-        commands.spawn((
-            SpriteBundle {
-                texture: asset_server.load("cone.png"),
-                transform,
-                ..default()
-            },
-            Obstacle {
-                pos: Vec2::new(kill_xpos, kill_ypos),
-            },
-            KillerObstacle,
-        ));
-    }
+    // for (kill_ypos, kill_xpos) in lv1_killcones() {
+    //     let mut transform = Transform::from_xyz(kill_xpos, kill_ypos, -1.0);
+    //     transform.scale = Vec3::new(0.2, 0.2, 0.2);
+    //     commands.spawn((
+    //         SpriteBundle {
+    //             texture: asset_server.load("cone.png"),
+    //             transform,
+    //             ..default()
+    //         },
+    //         Obstacle {
+    //             pos: Vec2::new(kill_xpos, kill_ypos),
+    //         },
+    //         KillerObstacle,
+    //     ));
+    // }
 
     for (num, xpos) in lv1_turns() {
         let mut transform = Transform::from_xyz(xpos, 20., -1.);
@@ -221,11 +235,12 @@ fn sprite_movement(
         car.vel += car_velocity_update;
 
         // Limit the length of the vector to car.top_speed and car.min_speed
-        if car.vel.length() > car.TOP_SPEED {
-            car.vel = car.vel.normalize() * car.TOP_SPEED;
-        } else if car.vel.length() < car.MIN_SPEED {
-            car.vel = car.vel.normalize() * car.MIN_SPEED;
-        }
+        // if car.vel.length() > car.top_speed {
+        //     car.vel = car.vel.normalize() * car.top_speed;
+        // }
+        //  else if car.vel.length() < car.MIN_SPEED {
+        //     car.vel = car.vel.normalize() * car.MIN_SPEED;
+        // }
 
         // Friction
         // car.vel = car.vel - car.FRITION_SPEED_LOSS;
