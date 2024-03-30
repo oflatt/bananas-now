@@ -1,6 +1,6 @@
 //! Renders a 2D scene containing a single, moving sprite.
 
-use bevy::{prelude::*, window::PrimaryWindow};
+use bevy::{prelude::*, utils::hashbrown::HashMap, window::PrimaryWindow};
 
 fn main() {
     App::new()
@@ -42,8 +42,17 @@ struct Car {
     top_speed: f32,
 }
 
+#[derive(Component)]
+struct AllSprite {
+    map: HashMap<String, Handle<Image>>
+}
+
 fn lv1_turns() -> Vec<(usize, f32)> {
     vec![(10, 0.0), (20, 50.0), (30, 100.0)]
+}
+
+fn get_texture(all_sprites: &AllSprite, key: &str) -> Handle<Image> {
+    all_sprites.map.get(key).unwrap().clone()
 }
 
 fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
@@ -87,16 +96,26 @@ fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
 
 fn initial_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
-    setup_level(&mut commands, asset_server);
+
+    // Load all sprites
+    let all_assets = vec!["racecar_center.png", "racecar_left.png", "racecar_right.png"];
+    let mut all_sprites = AllSprite {
+        map: Default::default(),
+    };
+    for asset in all_assets {
+        all_sprites.map.insert(asset.to_string(), asset_server.load(asset));
+    }
+    setup_level(&mut commands, asset_server, &all_sprites);
+    commands.spawn(all_sprites);
 }
 
-fn setup_level(commands: &mut Commands, asset_server: Res<AssetServer>) {
+fn setup_level(commands: &mut Commands, asset_server: Res<AssetServer>, all_sprites: &AllSprite) {
     let mut transform = Transform::from_xyz(100., 0., 0.);
     transform.scale = Vec3::new(0.2, 0.2, 0.2);
 
     commands.spawn((
         SpriteBundle {
-            texture: asset_server.load("racecar_center.png"),
+            texture: get_texture(all_sprites, "racecar_center.png"),
             transform,
             ..default()
         },
@@ -140,6 +159,7 @@ fn sprite_movement(
     mut sprite_position: Query<(&mut Car, &mut Transform, &mut Handle<Image>)>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     asset_server: Res<AssetServer>,
+    sprites: Query<&AllSprite>,
 ) {
     for (mut car, mut transform, mut texture) in &mut sprite_position {
         // Finds the car
@@ -148,14 +168,14 @@ fn sprite_movement(
             car.direction = car
                 .direction
                 .rotate(Vec2::from_angle(0.001 * car.vel.length()));
-            *texture = asset_server.load("racecar_left.png");
+            *texture = get_texture(sprites.get_single().unwrap(), "racecar_left.png");
         } else if keyboard_input.pressed(KeyCode::KeyD) {
             car.direction = car
                 .direction
                 .rotate(Vec2::from_angle(-0.001 * car.vel.length()));
-            *texture = asset_server.load("racecar_right.png");
+            *texture = get_texture(sprites.get_single().unwrap(), "racecar_right.png");
         } else {
-            *texture = asset_server.load("racecar_center.png");
+            *texture = get_texture(sprites.get_single().unwrap(), "racecar_center.png");
         }
 
         let car_velocity_update = car.direction * car.base_acc;
@@ -203,6 +223,7 @@ fn collision_update_system(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     to_delete: Query<Entity, With<PartOfLevel>>,
+    sprites: Query<&AllSprite>,
 ) {
     let car = car.single_mut();
     let mut game_over = false;
@@ -218,6 +239,6 @@ fn collision_update_system(
         for entity in to_delete.iter() {
             commands.entity(entity).despawn();
         }
-        setup_level(&mut commands, asset_server);
+        setup_level(&mut commands, asset_server, sprites.get_single().unwrap());
     }
 }
