@@ -5,7 +5,7 @@ serve:
 
 
 serve-andrey:
-	cargo watch --shell "make debug && python3 -m http.server 8000 -d ${WWW}"
+	cargo watch --shell "make debug-andrey && python3 -m http.server 8000 -d ${WWW}"
 
 debug-andrey:
 	cargo build --target wasm32-unknown-unknown
