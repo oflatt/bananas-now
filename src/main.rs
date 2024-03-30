@@ -8,7 +8,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(
             Update,
-            (sprite_movement, text_update_system, obstacle_update_system),
+            (sprite_movement, text_update_system, obstacle_update_system, collision_update_system),
         )
         .run();
 }
@@ -29,11 +29,8 @@ struct Car {
     pos: Vec2,
     vel: Vec2, // Velocity is calculated
     direction: Vec2,
-    BASE_ACC: f32,
-    TOP_SPEED: f32,
-    // mass: f32,
-    STEER_INCREMENT_ANGLE: f32,
-    MAX_STEER_ANGLE: f32,
+    base_acc: f32,
+    top_speed: f32,
 }
 
 fn lv1_turns() -> Vec<(usize, f32)> {
@@ -103,10 +100,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             pos: Vec2::new(100., 0.),
             vel: Vec2::new(0., 0.),
             direction: Vec2::new(0., 1.),
-            BASE_ACC: 1.,
-            TOP_SPEED: 40.,
-            STEER_INCREMENT_ANGLE: 0.1,
-            MAX_STEER_ANGLE: 0.5,
+            base_acc: 1.,
+            top_speed: 40.,
         },
     ));
     setup_obstacles(&mut commands, asset_server);
@@ -132,21 +127,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-fn cursor_position(q_windows: &Query<&Window, With<PrimaryWindow>>) -> Vec2 {
-    // Games typically only have one window (the primary window)
-    if let Some(position) = q_windows.single().cursor_position() {
-        position
-    } else {
-        Vec2::ZERO
-    }
-}
-
-fn change_sprite(mut sprite: Query<&mut Handle<ColorMaterial>>, asset_server: Res<AssetServer>) {
-    for (mut sprite) in &mut sprite {
-        *sprite = asset_server.load("car.png");
-    }
-}
-
 /// The sprite is animated by changing its translation depending on the time that has passed since
 /// the last frame.
 fn sprite_movement(
@@ -162,25 +142,25 @@ fn sprite_movement(
             // Steering speed depends on speed of the car.
             car.direction = car
                 .direction
-                .rotate(Vec2::from_angle(0.0005 * car.vel.length()));
-            *texture = asset_server.load("racecar_left.png");
+                .rotate(Vec2::from_angle(0.001 * car.vel.length()));
+        *texture = asset_server.load("racecar_left.png");
         }
         else if keyboard_input.pressed(KeyCode::KeyD) {
             car.direction = car
                 .direction
-                .rotate(Vec2::from_angle(-0.0005 * car.vel.length()));
+                .rotate(Vec2::from_angle(-0.001 * car.vel.length()));
             *texture = asset_server.load("racecar_right.png");
         }
         else {
             *texture = asset_server.load("racecar_center.png");
         }
 
-        let car_velocity_update = car.direction * car.BASE_ACC;
+        let car_velocity_update = car.direction * car.base_acc;
         car.vel += car_velocity_update;
 
         // Limit the length of the vector to car.top_speed
-        if car.vel.length() > car.TOP_SPEED {
-            car.vel = car.vel.normalize() * car.TOP_SPEED;
+        if car.vel.length() > car.top_speed {
+            car.vel = car.vel.normalize() * car.top_speed;
         }
 
         car.pos = car.pos + car.vel;
@@ -206,10 +186,20 @@ fn text_update_system(time: Res<Time>, mut query: Query<&mut Text, With<TimerTex
     }
 }
 
-fn obstacle_update_system(mut obstacles: Query<(&Obstacle, &mut Transform)>, mut car: Query<&Car>) {
+fn obstacle_update_system(mut obstacles: Query<(&Obstacle, &mut Transform)>, car: Query<&Car>) {
     let car = car.iter().next().unwrap();
     for (obstacle, mut transform) in &mut obstacles {
         transform.translation.x = obstacle.pos.x;
         transform.translation.y = obstacle.pos.y - car.pos.y;
+    }
+}
+
+fn collision_update_system(obstacles: Query<&Obstacle>, mut car: Query<&mut Car>) {
+    let mut car = car.single_mut();
+    for obstacle in &obstacles {
+        if car.pos.distance(obstacle.pos) < 100. {
+            car.vel = Vec2::new(0., 0.);
+            car.pos = Vec2::new(100., 0.);
+        }
     }
 }
