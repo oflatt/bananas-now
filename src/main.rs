@@ -29,9 +29,11 @@ struct Car {
     pos: Vec2,
     vel: Vec2, // Velocity is calculated
     direction: Vec2,
-    base_acceleration: f32,
-    top_speed: f32,
+    BASE_ACC: f32,
+    TOP_SPEED: f32,
     // mass: f32,
+    STEER_INCREMENT_ANGLE: f32,
+    MAX_STEER_ANGLE: f32,
 }
 
 fn lv1_turns() -> Vec<(usize, f32)> {
@@ -101,8 +103,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             pos: Vec2::new(100., 0.),
             vel: Vec2::new(0., 0.),
             direction: Vec2::new(0., 1.),
-            base_acceleration: 1.,
-            top_speed: 10.,
+            BASE_ACC: 1.,
+            TOP_SPEED: 10.,
+            STEER_INCREMENT_ANGLE: 0.1,
+            MAX_STEER_ANGLE: 0.5,
         },
     ));
     setup_obstacles(&mut commands, asset_server);
@@ -154,18 +158,19 @@ fn sprite_movement(
     for (mut car, mut transform) in &mut sprite_position {
         // Finds the car
         if keyboard_input.pressed(KeyCode::KeyA) {
-            car.direction = car.direction.rotate(Vec2::from_angle(-0.05));
+            // Steering speed depends on speed of the car.
+            car.direction = car.direction.rotate(Vec2::from_angle(-0.05 * car.vel.length()));
         }
         if keyboard_input.pressed(KeyCode::KeyD) {
-            car.direction = car.direction.rotate(Vec2::from_angle(0.05));
-        } // TODO make this rotation around direction
+            car.direction = car.direction.rotate(Vec2::from_angle(0.05 * car.vel.length()));
+        } 
 
-        let car_velocity_update = car.direction * car.base_acceleration;
+        let car_velocity_update = car.direction * car.BASE_ACC;
         car.vel += car_velocity_update;
 
         // Limit the length of the vector to car.top_speed
-        if car.vel.length() > car.top_speed {
-            car.vel = car.vel.normalize() * car.top_speed;
+        if car.vel.length() > car.TOP_SPEED {
+            car.vel = car.vel.normalize() * car.TOP_SPEED;
         }
 
         car.pos = car.pos + car.vel;
