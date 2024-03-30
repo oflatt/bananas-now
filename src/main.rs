@@ -118,7 +118,7 @@ fn sprite_movement(
         
         let car_velocity_update = car.direction * car.base_acceleration;
         car.vel += car_velocity_update;
-        car.pos += car.vel;
+        car.pos = car.pos + car.vel;
 
         
         transform.translation.y = car.pos.y;
