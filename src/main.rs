@@ -234,16 +234,10 @@ fn sprite_movement(
 
         car.vel += car_velocity_update;
 
-        // Limit the length of the vector to car.top_speed and car.min_speed
-        // if car.vel.length() > car.top_speed {
-        //     car.vel = car.vel.normalize() * car.top_speed;
-        // }
-        //  else if car.vel.length() < car.MIN_SPEED {
-        //     car.vel = car.vel.normalize() * car.MIN_SPEED;
-        // }
-
-        // Friction
-        // car.vel = car.vel - car.FRITION_SPEED_LOSS;
+        // Limit the length of the vector to car.top_speed
+        if car.vel.length() > car.top_speed {
+            car.vel = car.vel.normalize() * car.top_speed;
+        }
 
         car.pos = car.pos + car.vel;
 
