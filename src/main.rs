@@ -84,14 +84,20 @@ fn sprite_movement(
 ) {
     for (mut car, mut transform) in &mut sprite_position { // Finds the car
         if keyboard_input.pressed(KeyCode::KeyA) {
-            car.pos.x -= 1.;
+            car.direction = Vec2::new(-1., 0.);
         }
         if keyboard_input.pressed(KeyCode::KeyD) {
-            car.pos.x += 1.;
+            car.direction = Vec2::new(1., 0.);
         } // TODO make this rotation around direction
 
         // Physics processing
         car.pos.y = cursor_position(&q_window).y;
+        
+        let car_velocity_update = car.direction * car.base_acceleration;
+        car.vel += car_velocity_update;
+        car.pos += car.vel;
+
+        
         transform.translation.y = car.pos.y;
         transform.translation.x = car.pos.x;
 
