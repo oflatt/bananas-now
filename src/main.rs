@@ -10,6 +10,7 @@ fn main() {
         .run();
 }
 
+#[derive(Component)]
 struct Obstacle {
     pos: Vec2,
 }
@@ -21,12 +22,29 @@ struct Car {
     direction: Vec2,
 }
 
+fn setup_obstacles(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let mut transform = Transform::from_xyz(0., 20., 0.);
+    transform.scale = Vec3::new(0.2, 0.2, 0.2);
+    commands.spawn((
+        SpriteBundle {
+            texture: asset_server.load("cone.png"),
+            transform,
+            ..default()
+        },
+        Obstacle {
+            pos: Vec2::new(100., 0.),
+        },
+    ));
+}
+
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let mut transform = Transform::from_xyz(100., 0., 0.);
+    transform.scale = Vec3::new(0.2, 0.2, 0.2);
     commands.spawn(Camera2dBundle::default());
     commands.spawn((
         SpriteBundle {
-            texture: asset_server.load("icon.png"),
-            transform: Transform::from_xyz(100., 0., 0.),
+            texture: asset_server.load("car.png"),
+            transform,
             ..default()
         },
         Car {
@@ -35,6 +53,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             direction: Vec2::new(0., 1.),
         },
     ));
+    setup_obstacles(commands, asset_server);
 }
 
 fn cursor_position(q_windows: &Query<&Window, With<PrimaryWindow>>) -> Vec2 {
