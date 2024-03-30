@@ -7,13 +7,13 @@ serve:
 
 debug:
 	cargo build --target wasm32-unknown-unknown
-	rm -rf ${WWW} || true
+	#rm -rf ${WWW} || true
 	wasm-bindgen --no-typescript --target web \
 			--out-dir ${WWW} \
 			--out-name "mygame" \
 			./target/wasm32-unknown-unknown/debug/bevy-hello-world.wasm
-	cp index.html ${WWW}/index.html
-	cp -r assets ${WWW}/assets
+	#cp index.html ${WWW}/index.html
+	#cp -r assets ${WWW}/assets
 
 build:
 	cargo build --release --target wasm32-unknown-unknown
