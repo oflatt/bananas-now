@@ -2,8 +2,15 @@
 
 use bevy::{prelude::*, utils::hashbrown::HashMap, window::PrimaryWindow};
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, States)]
+enum AppState {
+    StartLevel(usize),
+    Game,
+}
+
 fn main() {
     App::new()
+        .insert_state(AppState::StartLevel(0))
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, initial_setup)
         .add_systems(
@@ -13,8 +20,10 @@ fn main() {
                 text_update_system,
                 obstacle_update_system,
                 collision_update_system,
-            ),
+            )
+                .run_if(in_state(AppState::Game)),
         )
+        .add_systems(Update, (check_start_level,))
         .run();
 }
 
@@ -203,7 +212,6 @@ fn setup_level(commands: &mut Commands, asset_server: Res<AssetServer>, all_spri
 /// The sprite is animated by changing its translation depending on the time that has passed since
 /// the last frame.
 fn sprite_movement(
-    _time: Res<Time>,
     mut sprite_position: Query<(&mut Car, &mut Transform, &mut Handle<Image>)>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     asset_server: Res<AssetServer>,
@@ -228,8 +236,7 @@ fn sprite_movement(
 
         let mut car_velocity_update = car.direction * car.base_acc;
         if car.vel.length() > 0.000001 {
-            car_velocity_update -=
-                car.vel.angle_between(car.direction).abs() * car.vel * 0.1;
+            car_velocity_update -= car.vel.angle_between(car.direction).abs() * car.vel * 0.1;
         }
 
         car.vel += car_velocity_update;
@@ -241,6 +248,19 @@ fn sprite_movement(
 
         car.pos = car.pos + car.vel;
 
+        /*
+        TODO add accel changes.
+        vel += accel * time.delta_seconds(); // Check if this works in direction we need
+        pos += vel * time.delta_seconds();
+        */
+    }
+}
+
+fn sprite_draw(
+    mut sprite_position: Query<(&mut Car, &mut Transform, &mut Handle<Image>)>,
+    sprites: Query<&AllSprite>,
+) {
+    for (mut car, mut transform, mut texture) in &mut sprite_position {
         // Update sprite
         transform.translation.y = -200.0;
         transform.translation.x = car.pos.x;
@@ -271,6 +291,8 @@ fn collision_update_system(
     asset_server: Res<AssetServer>,
     to_delete: Query<Entity, With<PartOfLevel>>,
     sprites: Query<&AllSprite>,
+    mut state: ResMut<State<AppState>>,
+    mut next_state: ResMut<NextState<AppState>>,
 ) {
     let car = car.single_mut();
     let mut game_over = false;
@@ -287,5 +309,15 @@ fn collision_update_system(
             commands.entity(entity).despawn();
         }
         setup_level(&mut commands, asset_server, sprites.get_single().unwrap());
+        next_state.set(AppState::StartLevel(0));
+    }
+}
+
+fn check_start_level(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
+    if keyboard_input.pressed(KeyCode::Space) {
+        next_state.set(AppState::Game);
     }
 }
