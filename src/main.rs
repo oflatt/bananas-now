@@ -5,13 +5,22 @@ use bevy::{prelude::*, window::PrimaryWindow};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(Startup, setup)
+        .add_systems(Startup, initial_setup)
         .add_systems(
             Update,
-            (sprite_movement, text_update_system, obstacle_update_system),
+            (
+                sprite_movement,
+                text_update_system,
+                obstacle_update_system,
+                collision_update_system,
+            ),
         )
         .run();
 }
+
+// All objects part of the level need this component so they can be despawned
+#[derive(Component)]
+struct PartOfLevel;
 
 #[derive(Component)]
 struct TimerText;
@@ -108,6 +117,7 @@ fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
                 Obstacle {
                     pos: Vec2::new(xpos + left_side, ypos),
                 },
+                PartOfLevel
             ));
             commands.spawn((
                 SpriteBundle {
@@ -118,6 +128,7 @@ fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
                 Obstacle {
                     pos: Vec2::new(xpos - left_side, ypos),
                 },
+                PartOfLevel
             ));
 
             ypos += 100.0;
@@ -125,13 +136,18 @@ fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn initial_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn(Camera2dBundle::default());
+    setup_level(&mut commands, asset_server);
+}
+
+fn setup_level(commands: &mut Commands, asset_server: Res<AssetServer>) {
     let mut transform = Transform::from_xyz(100., 0., 0.);
     transform.scale = Vec3::new(0.2, 0.2, 0.2);
-    commands.spawn(Camera2dBundle::default());
+
     commands.spawn((
         SpriteBundle {
-            texture: asset_server.load("car.png"),
+            texture: asset_server.load("racecar_center.png"),
             transform,
             ..default()
         },
@@ -148,7 +164,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             FRITION_SPEED_LOSS: 1.0,
         },
     ));
-    setup_obstacles(&mut commands, asset_server);
+    setup_obstacles(commands, asset_server);
 
     commands.spawn((
         // Create a TextBundle that has a Text with a single section.
@@ -168,50 +184,39 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         }),
         TimerText,
+        PartOfLevel
     ));
-}
-
-fn cursor_position(q_windows: &Query<&Window, With<PrimaryWindow>>) -> Vec2 {
-    // Games typically only have one window (the primary window)
-    if let Some(position) = q_windows.single().cursor_position() {
-        position
-    } else {
-        Vec2::ZERO
-    }
-}
-
-fn change_sprite(mut sprite: Query<&mut Handle<ColorMaterial>>, asset_server: Res<AssetServer>) {
-    for (mut sprite) in &mut sprite {
-        *sprite = asset_server.load("car.png");
-    }
 }
 
 /// The sprite is animated by changing its translation depending on the time that has passed since
 /// the last frame.
 fn sprite_movement(
     _time: Res<Time>,
-    mut sprite_position: Query<(&mut Car, &mut Transform)>,
-    q_window: Query<&Window, With<PrimaryWindow>>,
+    mut sprite_position: Query<(&mut Car, &mut Transform, &mut Handle<Image>)>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
+    asset_server: Res<AssetServer>,
 ) {
-    for (mut car, mut transform) in &mut sprite_position {
+    for (mut car, mut transform, mut texture) in &mut sprite_position {
         // Finds the car
         if keyboard_input.pressed(KeyCode::KeyA) {
             // Steering speed depends on speed of the car.
             car.direction = car
                 .direction
-                .rotate(Vec2::from_angle(0.0005 * car.vel.length()));
-        }
-        if keyboard_input.pressed(KeyCode::KeyD) {
+                .rotate(Vec2::from_angle(0.001 * car.vel.length()));
+            *texture = asset_server.load("racecar_left.png");
+        } else if keyboard_input.pressed(KeyCode::KeyD) {
             car.direction = car
                 .direction
-                .rotate(Vec2::from_angle(-0.0005 * car.vel.length()));
+                .rotate(Vec2::from_angle(-0.001 * car.vel.length()));
+            *texture = asset_server.load("racecar_right.png");
+        } else {
+            *texture = asset_server.load("racecar_center.png");
         }
         // if keyboard_input.just_pressed(KeyCode::KeyW) {
         //     car.vel = car.vel + car.direction * car.BOOST_SPEED;
         // }
 
-        let car_velocity_update = car.direction * car.BASE_ACC;
+        let car_velocity_update = car.direction * car.base_acc;
         car.vel += car_velocity_update;
 
         // Limit the length of the vector to car.top_speed and car.min_speed
@@ -241,10 +246,35 @@ fn text_update_system(time: Res<Time>, mut query: Query<&mut Text, With<TimerTex
     }
 }
 
-fn obstacle_update_system(mut obstacles: Query<(&Obstacle, &mut Transform)>, mut car: Query<&Car>) {
+fn obstacle_update_system(mut obstacles: Query<(&Obstacle, &mut Transform)>, car: Query<&Car>) {
     let car = car.iter().next().unwrap();
     for (obstacle, mut transform) in &mut obstacles {
         transform.translation.x = obstacle.pos.x;
         transform.translation.y = obstacle.pos.y - car.pos.y;
+    }
+}
+
+fn collision_update_system(
+    obstacles: Query<&Obstacle>,
+    mut car: Query<&mut Car>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    to_delete: Query<Entity, With<PartOfLevel>>,
+) {
+    let car = car.single_mut();
+    let mut game_over = false;
+    for obstacle in &obstacles {
+        if car.pos.distance(obstacle.pos) < 100. {
+            // Game over
+            game_over = true;
+        }
+    }
+
+    if game_over {
+        // delete things part of the level
+        for entity in to_delete.iter() {
+            commands.entity(entity).despawn();
+        }
+        setup_level(&mut commands, asset_server);
     }
 }
