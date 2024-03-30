@@ -44,7 +44,7 @@ struct Car {
 
 #[derive(Component)]
 struct AllSprite {
-    map: HashMap<String, Handle<Image>>
+    map: HashMap<String, Handle<Image>>,
 }
 
 fn lv1_turns() -> Vec<(usize, f32)> {
@@ -75,7 +75,7 @@ fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
                 Obstacle {
                     pos: Vec2::new(xpos + left_side, ypos),
                 },
-                PartOfLevel
+                PartOfLevel,
             ));
             commands.spawn((
                 SpriteBundle {
@@ -86,7 +86,7 @@ fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
                 Obstacle {
                     pos: Vec2::new(xpos - left_side, ypos),
                 },
-                PartOfLevel
+                PartOfLevel,
             ));
 
             ypos += 100.0;
@@ -98,12 +98,18 @@ fn initial_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
 
     // Load all sprites
-    let all_assets = vec!["racecar_center.png", "racecar_left.png", "racecar_right.png"];
+    let all_assets = vec![
+        "racecar_center.png",
+        "racecar_left.png",
+        "racecar_right.png",
+    ];
     let mut all_sprites = AllSprite {
         map: Default::default(),
     };
     for asset in all_assets {
-        all_sprites.map.insert(asset.to_string(), asset_server.load(asset));
+        all_sprites
+            .map
+            .insert(asset.to_string(), asset_server.load(asset));
     }
     setup_level(&mut commands, asset_server, &all_sprites);
     commands.spawn(all_sprites);
@@ -126,7 +132,7 @@ fn setup_level(commands: &mut Commands, asset_server: Res<AssetServer>, all_spri
             base_acc: 1.,
             top_speed: 40.,
         },
-        PartOfLevel
+        PartOfLevel,
     ));
     setup_obstacles(commands, asset_server);
 
@@ -148,7 +154,7 @@ fn setup_level(commands: &mut Commands, asset_server: Res<AssetServer>, all_spri
             ..default()
         }),
         TimerText,
-        PartOfLevel
+        PartOfLevel,
     ));
 }
 
@@ -178,7 +184,12 @@ fn sprite_movement(
             *texture = get_texture(sprites.get_single().unwrap(), "racecar_center.png");
         }
 
-        let car_velocity_update = car.direction * car.base_acc;
+        let mut car_velocity_update = car.direction * car.base_acc;
+        if car.vel.length() > 0.000001 {
+            car_velocity_update -=
+                car.vel.angle_between(car.direction).abs() * car.vel * 0.1;
+        }
+
         car.vel += car_velocity_update;
 
         // Limit the length of the vector to car.top_speed
