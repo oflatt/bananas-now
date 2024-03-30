@@ -1,6 +1,6 @@
 //! Renders a 2D scene containing a single, moving sprite.
 
-use bevy::{prelude::*, sprite, window::PrimaryWindow};
+use bevy::{prelude::*, window::PrimaryWindow};
 
 fn main() {
     App::new()
@@ -151,28 +151,28 @@ fn change_sprite(mut sprite: Query<&mut Handle<ColorMaterial>>, asset_server: Re
 /// the last frame.
 fn sprite_movement(
     _time: Res<Time>,
-    mut sprite_position: Query<(&mut Car, &mut Transform, &mut Handle<ColorMaterial>)>,
+    mut sprite_position: Query<(&mut Car, &mut Transform, &mut Handle<Image>)>,
     q_window: Query<&Window, With<PrimaryWindow>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     asset_server: Res<AssetServer>
 ) {
-    for (mut car, mut transform, mut sprite) in &mut sprite_position {
+    for (mut car, mut transform, mut texture) in &mut sprite_position {
         // Finds the car
         if keyboard_input.pressed(KeyCode::KeyA) {
             // Steering speed depends on speed of the car.
             car.direction = car
                 .direction
                 .rotate(Vec2::from_angle(0.0005 * car.vel.length()));
-            *sprite = asset_server.load("racecar_left.png");
+            *texture = asset_server.load("racecar_left.png");
         }
         else if keyboard_input.pressed(KeyCode::KeyD) {
             car.direction = car
                 .direction
                 .rotate(Vec2::from_angle(-0.0005 * car.vel.length()));
-            *sprite = asset_server.load("racecar_right.png");
+            *texture = asset_server.load("racecar_right.png");
         }
         else {
-            *sprite = asset_server.load("racecar_center.png");
+            *texture = asset_server.load("racecar_center.png");
         }
 
         let car_velocity_update = car.direction * car.BASE_ACC;
