@@ -11,9 +11,8 @@ fn main() {
 }
 
 #[derive(Component)]
-enum Direction {
-    Up,
-    Down,
+struct Car {
+    pos: Vec2,
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -24,7 +23,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             transform: Transform::from_xyz(100., 0., 0.),
             ..default()
         },
-        Direction::Up,
+        Car {
+            pos: Vec2::new(100., 0.),
+        },
     ));
 }
 
@@ -40,11 +41,13 @@ fn cursor_position(q_windows: &Query<&Window, With<PrimaryWindow>>) -> Vec2 {
 /// The sprite is animated by changing its translation depending on the time that has passed since
 /// the last frame.
 fn sprite_movement(
-    time: Res<Time>,
-    mut sprite_position: Query<(&mut Direction, &mut Transform)>,
+    _time: Res<Time>,
+    mut sprite_position: Query<(&mut Car, &mut Transform)>,
     q_window: Query<&Window, With<PrimaryWindow>>,
 ) {
-    for (mut logo, mut transform) in &mut sprite_position {
-        transform.translation.y = cursor_position(&q_window).y;
+    for (mut car, mut transform) in &mut sprite_position {
+        car.pos.y = cursor_position(&q_window).y;
+        transform.translation.y = car.pos.y;
+        transform.translation.x = car.pos.x;
     }
 }
