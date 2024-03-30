@@ -156,7 +156,6 @@ fn lv2_turns() -> Vec<(usize, f32)> {
     ]
 }
 
-
 fn lv1_customers() -> Vec<Customer> {
     vec![Customer {
         pos: Vec2::new(20., 500.),
@@ -236,7 +235,6 @@ fn lv1_turns() -> Vec<(usize, f32)> {
         (20, 100.0),
     ]
 }
-
 
 fn get_texture(all_sprites: &AllSprite, key: &str) -> Handle<Image> {
     all_sprites.map.get(key).unwrap().clone()
@@ -570,27 +568,29 @@ fn detect_shoot_system(
     car: Query<&Car>,
 ) {
     let car = car.iter().next().unwrap();
-    if keyboard_input.pressed(KeyCode::KeyK) | keyboard_input.pressed(KeyCode::KeyJ) {
-        let mut transform = Transform::from_xyz(car.pos.x, car.pos.y, 1.0);
-        transform.scale = Vec3::new(0.1, 0.1, 0.1);
-        let angle = if keyboard_input.pressed(KeyCode::KeyK) {
-            -std::f32::consts::FRAC_PI_2
-        } else {
-            std::f32::consts::FRAC_PI_2
-        };
-        commands.spawn((
-            SpriteBundle {
-                texture: get_texture(all_sprites.get_single().unwrap(), "smoke2.png"),
-                transform,
-                ..default()
-            },
-            Projectile {
-                pos: car.pos,
-                // rotate direction so it shoots from right if J is pressed
-                vel: car.direction.rotate(Vec2::from_angle(angle)) * car.projectile_speed,
-                merch: Merch::Banana,
-            },
-            PartOfLevel,
-        ));
+    for keycode in [KeyCode::KeyK, KeyCode::KeyJ] {
+        if keyboard_input.pressed(keycode) {
+            let mut transform = Transform::from_xyz(car.pos.x, car.pos.y, 1.0);
+            transform.scale = Vec3::new(0.1, 0.1, 0.1);
+            let angle = if keycode == KeyCode::KeyK {
+                -std::f32::consts::FRAC_PI_2
+            } else {
+                std::f32::consts::FRAC_PI_2
+            };
+            commands.spawn((
+                SpriteBundle {
+                    texture: get_texture(all_sprites.get_single().unwrap(), "smoke2.png"),
+                    transform,
+                    ..default()
+                },
+                Projectile {
+                    pos: car.pos,
+                    // rotate direction so it shoots from right if J is pressed
+                    vel: car.direction.rotate(Vec2::from_angle(angle)) * car.projectile_speed,
+                    merch: Merch::Banana,
+                },
+                PartOfLevel,
+            ));
+        }
     }
 }
