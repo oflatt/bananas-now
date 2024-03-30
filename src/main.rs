@@ -5,13 +5,22 @@ use bevy::{prelude::*, window::PrimaryWindow};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(Startup, setup)
+        .add_systems(Startup, initial_setup)
         .add_systems(
             Update,
-            (sprite_movement, text_update_system, obstacle_update_system, collision_update_system),
+            (
+                sprite_movement,
+                text_update_system,
+                obstacle_update_system,
+                collision_update_system,
+            ),
         )
         .run();
 }
+
+// All objects part of the level need this component so they can be despawned
+#[derive(Component)]
+struct PartOfLevel;
 
 #[derive(Component)]
 struct TimerText;
@@ -40,18 +49,6 @@ fn lv1_turns() -> Vec<(usize, f32)> {
 fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
     let mut transform = Transform::from_xyz(0., 20., -1.0);
     transform.scale = Vec3::new(0.1, 0.1, 0.1);
-    // place one cone
-    /*commands.spawn((
-        SpriteBundle {
-            texture: asset_server.load("cone.png"),
-            transform,
-            ..default()
-        },
-        Obstacle {
-            pos: Vec2::new(100., 0.),
-        },
-        KillerObstacle,
-    ));*/
 
     let mut ypos = -100.0;
     let left_side = -400.0;
@@ -69,6 +66,7 @@ fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
                 Obstacle {
                     pos: Vec2::new(xpos + left_side, ypos),
                 },
+                PartOfLevel
             ));
             commands.spawn((
                 SpriteBundle {
@@ -79,6 +77,7 @@ fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
                 Obstacle {
                     pos: Vec2::new(xpos - left_side, ypos),
                 },
+                PartOfLevel
             ));
 
             ypos += 100.0;
@@ -86,10 +85,15 @@ fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn initial_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn(Camera2dBundle::default());
+    setup_level(&mut commands, asset_server);
+}
+
+fn setup_level(commands: &mut Commands, asset_server: Res<AssetServer>) {
     let mut transform = Transform::from_xyz(100., 0., 0.);
     transform.scale = Vec3::new(0.2, 0.2, 0.2);
-    commands.spawn(Camera2dBundle::default());
+
     commands.spawn((
         SpriteBundle {
             texture: asset_server.load("racecar_center.png"),
@@ -103,8 +107,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             base_acc: 1.,
             top_speed: 40.,
         },
+        PartOfLevel
     ));
-    setup_obstacles(&mut commands, asset_server);
+    setup_obstacles(commands, asset_server);
 
     commands.spawn((
         // Create a TextBundle that has a Text with a single section.
@@ -124,6 +129,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         }),
         TimerText,
+        PartOfLevel
     ));
 }
 
@@ -132,9 +138,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn sprite_movement(
     _time: Res<Time>,
     mut sprite_position: Query<(&mut Car, &mut Transform, &mut Handle<Image>)>,
-    q_window: Query<&Window, With<PrimaryWindow>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    asset_server: Res<AssetServer>
+    asset_server: Res<AssetServer>,
 ) {
     for (mut car, mut transform, mut texture) in &mut sprite_position {
         // Finds the car
@@ -143,15 +148,13 @@ fn sprite_movement(
             car.direction = car
                 .direction
                 .rotate(Vec2::from_angle(0.001 * car.vel.length()));
-        *texture = asset_server.load("racecar_left.png");
-        }
-        else if keyboard_input.pressed(KeyCode::KeyD) {
+            *texture = asset_server.load("racecar_left.png");
+        } else if keyboard_input.pressed(KeyCode::KeyD) {
             car.direction = car
                 .direction
                 .rotate(Vec2::from_angle(-0.001 * car.vel.length()));
             *texture = asset_server.load("racecar_right.png");
-        }
-        else {
+        } else {
             *texture = asset_server.load("racecar_center.png");
         }
 
@@ -194,12 +197,27 @@ fn obstacle_update_system(mut obstacles: Query<(&Obstacle, &mut Transform)>, car
     }
 }
 
-fn collision_update_system(obstacles: Query<&Obstacle>, mut car: Query<&mut Car>) {
-    let mut car = car.single_mut();
+fn collision_update_system(
+    obstacles: Query<&Obstacle>,
+    mut car: Query<&mut Car>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    to_delete: Query<Entity, With<PartOfLevel>>,
+) {
+    let car = car.single_mut();
+    let mut game_over = false;
     for obstacle in &obstacles {
         if car.pos.distance(obstacle.pos) < 100. {
-            car.vel = Vec2::new(0., 0.);
-            car.pos = Vec2::new(100., 0.);
+            // Game over
+            game_over = true;
         }
+    }
+
+    if game_over {
+        // delete things part of the level
+        for entity in to_delete.iter() {
+            commands.entity(entity).despawn();
+        }
+        setup_level(&mut commands, asset_server);
     }
 }
