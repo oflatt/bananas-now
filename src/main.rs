@@ -17,8 +17,10 @@ struct Obstacle {
 #[derive(Component)]
 struct Car {
     pos: Vec2,
-    vel: Vec2,
+    vel: Vec2, // Velocity is calculated
     direction: Vec2,
+    base_acceleration: f32,
+    // mass: f32,
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -33,6 +35,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             pos: Vec2::new(100., 0.),
             vel: Vec2::new(0., 0.),
             direction: Vec2::new(0., 1.),
+            base_acceleration: 1.,
         },
     ));
 }
@@ -54,13 +57,23 @@ fn sprite_movement(
     q_window: Query<&Window, With<PrimaryWindow>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
-    for (mut car, mut transform) in &mut sprite_position {
+    for (mut car, mut transform) in &mut sprite_position { // Finds the car
         if keyboard_input.pressed(KeyCode::KeyA) {
             car.pos.x -= 1.;
         }
+        if keyboard_input.pressed(KeyCode::KeyD) {
+            car.pos.x += 1.;
+        } // TODO make this rotation around direction
 
+        // Physics processing
         car.pos.y = cursor_position(&q_window).y;
         transform.translation.y = car.pos.y;
         transform.translation.x = car.pos.x;
+
+        /*
+        TODO add accel changes.
+        vel += accel * time.delta_seconds(); // Check if this works in direction we need
+        pos += vel * time.delta_seconds();
+        */
     }
 }
