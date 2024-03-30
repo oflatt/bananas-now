@@ -55,6 +55,8 @@ struct Car {
     direction: Vec2,
     base_acc: f32,
     top_speed: f32,
+    steer_strength: f32,
+    drift_strength: f32,
 }
 
 #[derive(Component)]
@@ -62,23 +64,78 @@ struct AllSprite {
     map: HashMap<String, Handle<Image>>,
 }
 
-fn lv1_turns() -> Vec<(usize, f32)> { // (how many blocks to render, x position of those blocks)
-    vec![(10, 0.0), (20, 50.0), (30, 100.0), (40, 150.0), (50, 200.0),
-         (30, 150.0), (20, 100.0), (10, 50.0), (5, 0.0), (5, -50.0),
-         (10, -100.0), (20, -150.0), (30, -200.0), (40, -250.0), (50, -300.0),
-         (30, -250.0), (20, -200.0), (10, -150.0), (5, -100.0), (5, -50.0),
-         (10, 0.0), (20, 50.0), (30, 100.0), (40, 150.0), (50, 200.0),
-         (30, 150.0), (20, 100.0), (10, 50.0), (5, 0.0), (5, -50.0),
-         (10, -100.0), (20, -150.0), (30, -200.0), (40, -250.0), (50, -300.0),
-         (30, -250.0), (20, -200.0), (10, -150.0), (5, -100.0), (5, -50.0),
-         (10, 0.0), (20, 50.0), (30, 100.0), (40, 150.0), (50, 200.0),
-         (30, 150.0), (20, 100.0), (10, 50.0), (5, 0.0), (5, -50.0),
-         (10, -100.0), (20, -150.0), (30, -200.0), (40, -250.0), (50, -300.0),
-         (30, -250.0), (20, -200.0), (10, -150.0), (5, -100.0), (5, -50.0),
-         (10, 0.0), (20, 50.0), (30, 100.0), (40, 150.0), (50, 200.0),
-         (30, 150.0), (20, 100.0),] 
+fn lv1_turns() -> Vec<(usize, f32)> {
+    // (how many blocks to render, x position of those blocks)
+    vec![
+        (10, 0.0),
+        (20, 50.0),
+        (30, 100.0),
+        (40, 150.0),
+        (50, 200.0),
+        (30, 150.0),
+        (20, 100.0),
+        (10, 50.0),
+        (5, 0.0),
+        (5, -50.0),
+        (10, -100.0),
+        (20, -150.0),
+        (30, -200.0),
+        (40, -250.0),
+        (50, -300.0),
+        (30, -250.0),
+        (20, -200.0),
+        (10, -150.0),
+        (5, -100.0),
+        (5, -50.0),
+        (10, 0.0),
+        (20, 50.0),
+        (30, 100.0),
+        (40, 150.0),
+        (50, 200.0),
+        (30, 150.0),
+        (20, 100.0),
+        (10, 50.0),
+        (5, 0.0),
+        (5, -50.0),
+        (10, -100.0),
+        (20, -150.0),
+        (30, -200.0),
+        (40, -250.0),
+        (50, -300.0),
+        (30, -250.0),
+        (20, -200.0),
+        (10, -150.0),
+        (5, -100.0),
+        (5, -50.0),
+        (10, 0.0),
+        (20, 50.0),
+        (30, 100.0),
+        (40, 150.0),
+        (50, 200.0),
+        (30, 150.0),
+        (20, 100.0),
+        (10, 50.0),
+        (5, 0.0),
+        (5, -50.0),
+        (10, -100.0),
+        (20, -150.0),
+        (30, -200.0),
+        (40, -250.0),
+        (50, -300.0),
+        (30, -250.0),
+        (20, -200.0),
+        (10, -150.0),
+        (5, -100.0),
+        (5, -50.0),
+        (10, 0.0),
+        (20, 50.0),
+        (30, 100.0),
+        (40, 150.0),
+        (50, 200.0),
+        (30, 150.0),
+        (20, 100.0),
+    ]
 }
-
 
 fn get_texture(all_sprites: &AllSprite, key: &str) -> Handle<Image> {
     all_sprites.map.get(key).unwrap().clone()
@@ -102,22 +159,22 @@ fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
 
     let mut ypos = -100.0;
     let left_side = -400.0; // Offset from the center coord of cones
-    // place level obstacles
-    // for (kill_ypos, kill_xpos) in lv1_killcones() {
-    //     let mut transform = Transform::from_xyz(kill_xpos, kill_ypos, -1.0);
-    //     transform.scale = Vec3::new(0.2, 0.2, 0.2);
-    //     commands.spawn((
-    //         SpriteBundle {
-    //             texture: asset_server.load("cone.png"),
-    //             transform,
-    //             ..default()
-    //         },
-    //         Obstacle {
-    //             pos: Vec2::new(kill_xpos, kill_ypos),
-    //         },
-    //         KillerObstacle,
-    //     ));
-    // }
+                            // place level obstacles
+                            // for (kill_ypos, kill_xpos) in lv1_killcones() {
+                            //     let mut transform = Transform::from_xyz(kill_xpos, kill_ypos, -1.0);
+                            //     transform.scale = Vec3::new(0.2, 0.2, 0.2);
+                            //     commands.spawn((
+                            //         SpriteBundle {
+                            //             texture: asset_server.load("cone.png"),
+                            //             transform,
+                            //             ..default()
+                            //         },
+                            //         Obstacle {
+                            //             pos: Vec2::new(kill_xpos, kill_ypos),
+                            //         },
+                            //         KillerObstacle,
+                            //     ));
+                            // }
 
     for (num, xpos) in lv1_turns() {
         let mut transform = Transform::from_xyz(xpos, 20., -1.);
@@ -214,6 +271,8 @@ fn setup_level(commands: &mut Commands, asset_server: Res<AssetServer>, all_spri
             direction: Vec2::new(0., 1.),
             base_acc: 1.,
             top_speed: 40.,
+            steer_strength: 0.0015,
+            drift_strength: 0.08,
         },
         PartOfLevel,
     ));
@@ -255,12 +314,12 @@ fn sprite_movement(
             // Steering speed depends on speed of the car.
             car.direction = car
                 .direction
-                .rotate(Vec2::from_angle(0.001 * car.vel.length()));
+                .rotate(Vec2::from_angle(car.steer_strength * car.vel.length()));
             *texture = get_texture(sprites.get_single().unwrap(), "racecar_left.png");
         } else if keyboard_input.pressed(KeyCode::KeyD) {
             car.direction = car
                 .direction
-                .rotate(Vec2::from_angle(-0.001 * car.vel.length()));
+                .rotate(Vec2::from_angle(-car.steer_strength * car.vel.length()));
             *texture = get_texture(sprites.get_single().unwrap(), "racecar_right.png");
         } else {
             *texture = get_texture(sprites.get_single().unwrap(), "racecar_center.png");
@@ -268,7 +327,8 @@ fn sprite_movement(
 
         let mut car_velocity_update = car.direction * car.base_acc;
         if car.vel.length() > 0.000001 {
-            car_velocity_update -= car.vel.angle_between(car.direction).abs() * car.vel * 0.1;
+            car_velocity_update -=
+                car.vel.angle_between(car.direction).abs() * car.vel * car.drift_strength;
         }
 
         car.vel += car_velocity_update;
