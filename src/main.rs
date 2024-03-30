@@ -30,14 +30,34 @@ struct Car {
     vel: Vec2, // Velocity is calculated
     direction: Vec2,
     BASE_ACC: f32,
+    MIN_SPEED: f32,
     TOP_SPEED: f32,
+    BOOST_SPEED: f32,
+    FRITION_SPEED_LOSS: f32,
     // mass: f32,
     STEER_INCREMENT_ANGLE: f32,
     MAX_STEER_ANGLE: f32,
 }
 
-fn lv1_turns() -> Vec<(usize, f32)> {
-    vec![(10, 0.0), (20, 50.0), (30, 100.0)]
+fn lv1_turns() -> Vec<(usize, f32)> { // (how many blocks to render, x position of those blocks)
+    vec![(10, 0.0), (20, 50.0), (30, 100.0), (40, 150.0), (50, 200.0),
+         (30, 150.0), (20, 100.0), (10, 50.0), (5, 0.0), (5, -50.0),
+         (10, -100.0), (20, -150.0), (30, -200.0), (40, -250.0), (50, -300.0),
+         (30, -250.0), (20, -200.0), (10, -150.0), (5, -100.0), (5, -50.0),
+         (10, 0.0), (20, 50.0), (30, 100.0), (40, 150.0), (50, 200.0),
+         (30, 150.0), (20, 100.0), (10, 50.0), (5, 0.0), (5, -50.0),
+         (10, -100.0), (20, -150.0), (30, -200.0), (40, -250.0), (50, -300.0),
+         (30, -250.0), (20, -200.0), (10, -150.0), (5, -100.0), (5, -50.0),
+         (10, 0.0), (20, 50.0), (30, 100.0), (40, 150.0), (50, 200.0),
+         (30, 150.0), (20, 100.0), (10, 50.0), (5, 0.0), (5, -50.0),
+         (10, -100.0), (20, -150.0), (30, -200.0), (40, -250.0), (50, -300.0),
+         (30, -250.0), (20, -200.0), (10, -150.0), (5, -100.0), (5, -50.0),
+         (10, 0.0), (20, 50.0), (30, 100.0), (40, 150.0), (50, 200.0),
+         (30, 150.0), (20, 100.0),] 
+}
+
+fn lv1_killcones() -> Vec<(f32, f32)> { // (y position of the cone, x position of the cone)
+    vec![(10.0, -50.0), (50.0, -50.0), (30.0, -100.0)] 
 }
 
 fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
@@ -57,8 +77,24 @@ fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
     ));*/
 
     let mut ypos = -100.0;
-    let left_side = -400.0;
+    let left_side = -400.0; // Offset from the center coord of cones
     // place level obstacles
+    for (kill_ypos, kill_xpos) in lv1_killcones() {
+        let mut transform = Transform::from_xyz(kill_xpos, kill_ypos, -1.0);
+        transform.scale = Vec3::new(0.2, 0.2, 0.2);
+        commands.spawn((
+            SpriteBundle {
+                texture: asset_server.load("cone.png"),
+                transform,
+                ..default()
+            },
+            Obstacle {
+                pos: Vec2::new(kill_xpos, kill_ypos),
+            },
+            KillerObstacle,
+        ));
+    }
+
     for (num, xpos) in lv1_turns() {
         let mut transform = Transform::from_xyz(xpos, 20., -1.);
         transform.scale = Vec3::new(0.1, 0.1, 0.1);
@@ -104,9 +140,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             vel: Vec2::new(0., 0.),
             direction: Vec2::new(0., 1.),
             BASE_ACC: 1.,
+            MIN_SPEED: 2.,
+            BOOST_SPEED: 10.,
             TOP_SPEED: 40.,
             STEER_INCREMENT_ANGLE: 0.1,
             MAX_STEER_ANGLE: 0.5,
+            FRITION_SPEED_LOSS: 1.0,
         },
     ));
     setup_obstacles(&mut commands, asset_server);
@@ -168,14 +207,22 @@ fn sprite_movement(
                 .direction
                 .rotate(Vec2::from_angle(-0.0005 * car.vel.length()));
         }
+        // if keyboard_input.just_pressed(KeyCode::KeyW) {
+        //     car.vel = car.vel + car.direction * car.BOOST_SPEED;
+        // }
 
         let car_velocity_update = car.direction * car.BASE_ACC;
         car.vel += car_velocity_update;
 
-        // Limit the length of the vector to car.top_speed
+        // Limit the length of the vector to car.top_speed and car.min_speed
         if car.vel.length() > car.TOP_SPEED {
             car.vel = car.vel.normalize() * car.TOP_SPEED;
+        } else if car.vel.length() < car.MIN_SPEED {
+            car.vel = car.vel.normalize() * car.MIN_SPEED;
         }
+
+        // Friction
+        // car.vel = car.vel - car.FRITION_SPEED_LOSS;
 
         car.pos = car.pos + car.vel;
 
@@ -185,12 +232,6 @@ fn sprite_movement(
 
         transform.rotation =
             Quat::from_rotation_z(car.direction.to_angle() - std::f32::consts::FRAC_PI_2);
-
-        /*
-        TODO add accel changes.
-        vel += accel * time.delta_seconds(); // Check if this works in direction we need
-        pos += vel * time.delta_seconds();
-        */
     }
 }
 
