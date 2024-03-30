@@ -15,13 +15,16 @@ fn main() {
         .add_systems(Startup, initial_setup)
         .add_systems(
             Update,
-            (
-                sprite_movement,
-                text_update_system,
-                obstacle_update_system,
-                collision_update_system,
-            )
+            (sprite_movement, text_update_system, collision_update_system)
                 .run_if(in_state(AppState::Game)),
+        )
+        .add_systems(
+            Update,
+            (sprite_draw, obstacle_draw).run_if(in_state(AppState::Game)),
+        )
+        .add_systems(
+            Update,
+            (sprite_draw, obstacle_draw).run_if(in_state(AppState::StartLevel(0))),
         )
         .add_systems(Update, (check_start_level,))
         .run();
@@ -276,7 +279,7 @@ fn text_update_system(time: Res<Time>, mut query: Query<&mut Text, With<TimerTex
     }
 }
 
-fn obstacle_update_system(mut obstacles: Query<(&Obstacle, &mut Transform)>, car: Query<&Car>) {
+fn obstacle_draw(mut obstacles: Query<(&Obstacle, &mut Transform)>, car: Query<&Car>) {
     let car = car.iter().next().unwrap();
     for (obstacle, mut transform) in &mut obstacles {
         transform.translation.x = obstacle.pos.x;
@@ -287,12 +290,11 @@ fn obstacle_update_system(mut obstacles: Query<(&Obstacle, &mut Transform)>, car
 fn collision_update_system(
     obstacles: Query<&Obstacle>,
     mut car: Query<&mut Car>,
+    mut next_state: ResMut<NextState<AppState>>,
+    to_delete: Query<Entity, With<PartOfLevel>>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    to_delete: Query<Entity, With<PartOfLevel>>,
     sprites: Query<&AllSprite>,
-    mut state: ResMut<State<AppState>>,
-    mut next_state: ResMut<NextState<AppState>>,
 ) {
     let car = car.single_mut();
     let mut game_over = false;
@@ -304,6 +306,7 @@ fn collision_update_system(
     }
 
     if game_over {
+
         // delete things part of the level
         for entity in to_delete.iter() {
             commands.entity(entity).despawn();
@@ -318,6 +321,7 @@ fn check_start_level(
     mut next_state: ResMut<NextState<AppState>>,
 ) {
     if keyboard_input.pressed(KeyCode::Space) {
+        
         next_state.set(AppState::Game);
     }
 }
