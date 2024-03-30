@@ -1,16 +1,18 @@
 .PHONY: debug install build serve
 
+WWW=${PWD}/target/www/
+
 serve:
-	cargo watch --shell "make debug && python3 -m http.server 8000 -d out"
+	cargo watch --shell "make debug && python3 -m http.server 8000 -d ${WWW}"
 
 debug:
 	cargo build --target wasm32-unknown-unknown
 	wasm-bindgen --no-typescript --target web \
-			--out-dir ./out/ \
+			--out-dir ${WWW} \
 			--out-name "mygame" \
 			./target/wasm32-unknown-unknown/debug/bevy-hello-world.wasm
-	cp index.html out/index.html
-	cp -r assets out/assets
+	cp index.html ${WWW}/index.html
+	cp -r assets ${WWW}/assets
 
 build:
 	cargo build --release --target wasm32-unknown-unknown
