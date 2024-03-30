@@ -1,4 +1,7 @@
-.PHONY: debug install build
+.PHONY: debug install build serve
+
+serve:
+	cargo watch --shell "make debug && python3 -m http.server 8000 -d out"
 
 debug:
 	cargo build --target wasm32-unknown-unknown
