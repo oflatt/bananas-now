@@ -34,8 +34,8 @@ struct Car {
     // mass: f32,
 }
 
-fn lv1_turns() -> Vec<(usize, f64)> {
-    vec![(10, 0.0), (20, 5.0), (30, 10.0)]
+fn lv1_turns() -> Vec<(usize, f32)> {
+    vec![(10, 0.0), (20, 50.0), (30, 100.0)]
 }
 
 fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
@@ -55,11 +55,12 @@ fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
     ));*/
 
     let mut ypos = -100.0;
+    let left_side = -400.0;
     // place level obstacles
     for (num, xpos) in lv1_turns() {
-        let mut transform = Transform::from_xyz(xpos as f32, 20., 0.);
+        let mut transform = Transform::from_xyz(xpos, 20., 0.);
         transform.scale = Vec3::new(0.1, 0.1, 0.1);
-        for n in 0..num {
+        for _n in 0..num {
             commands.spawn((
                 SpriteBundle {
                     texture: asset_server.load("cone.png"),
@@ -67,9 +68,20 @@ fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 },
                 Obstacle {
-                    pos: Vec2::new(xpos as f32, ypos),
+                    pos: Vec2::new(xpos + left_side, ypos),
                 },
             ));
+            commands.spawn((
+                SpriteBundle {
+                    texture: asset_server.load("cone.png"),
+                    transform,
+                    ..default()
+                },
+                Obstacle {
+                    pos: Vec2::new(xpos - left_side, ypos),
+                },
+            ));
+
             ypos += 100.0;
         }
     }
