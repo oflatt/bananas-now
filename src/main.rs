@@ -1,6 +1,6 @@
 //! Renders a 2D scene containing a single, moving sprite.
 
-use bevy::{prelude::*, window::PrimaryWindow};
+use bevy::{prelude::*, utils::hashbrown::HashMap, window::PrimaryWindow};
 
 fn main() {
     App::new()
@@ -38,35 +38,21 @@ struct Car {
     pos: Vec2,
     vel: Vec2, // Velocity is calculated
     direction: Vec2,
-    BASE_ACC: f32,
-    MIN_SPEED: f32,
-    TOP_SPEED: f32,
-    BOOST_SPEED: f32,
-    FRITION_SPEED_LOSS: f32,
-    // mass: f32,
-    STEER_INCREMENT_ANGLE: f32,
-    MAX_STEER_ANGLE: f32,
+    base_acc: f32,
+    top_speed: f32,
 }
 
-fn lv1_turns() -> Vec<(usize, f32)> { // (how many blocks to render, x position of those blocks)
-    vec![(10, 0.0), (20, 50.0), (30, 100.0), (40, 150.0), (50, 200.0),
-         (30, 150.0), (20, 100.0), (10, 50.0), (5, 0.0), (5, -50.0),
-         (10, -100.0), (20, -150.0), (30, -200.0), (40, -250.0), (50, -300.0),
-         (30, -250.0), (20, -200.0), (10, -150.0), (5, -100.0), (5, -50.0),
-         (10, 0.0), (20, 50.0), (30, 100.0), (40, 150.0), (50, 200.0),
-         (30, 150.0), (20, 100.0), (10, 50.0), (5, 0.0), (5, -50.0),
-         (10, -100.0), (20, -150.0), (30, -200.0), (40, -250.0), (50, -300.0),
-         (30, -250.0), (20, -200.0), (10, -150.0), (5, -100.0), (5, -50.0),
-         (10, 0.0), (20, 50.0), (30, 100.0), (40, 150.0), (50, 200.0),
-         (30, 150.0), (20, 100.0), (10, 50.0), (5, 0.0), (5, -50.0),
-         (10, -100.0), (20, -150.0), (30, -200.0), (40, -250.0), (50, -300.0),
-         (30, -250.0), (20, -200.0), (10, -150.0), (5, -100.0), (5, -50.0),
-         (10, 0.0), (20, 50.0), (30, 100.0), (40, 150.0), (50, 200.0),
-         (30, 150.0), (20, 100.0),] 
+#[derive(Component)]
+struct AllSprite {
+    map: HashMap<String, Handle<Image>>,
 }
 
-fn lv1_killcones() -> Vec<(f32, f32)> { // (y position of the cone, x position of the cone)
-    vec![(10.0, -50.0), (50.0, -50.0), (30.0, -100.0)] 
+fn lv1_turns() -> Vec<(usize, f32)> {
+    vec![(10, 0.0), (20, 50.0), (30, 100.0)]
+}
+
+fn get_texture(all_sprites: &AllSprite, key: &str) -> Handle<Image> {
+    all_sprites.map.get(key).unwrap().clone()
 }
 
 fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
@@ -117,7 +103,7 @@ fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
                 Obstacle {
                     pos: Vec2::new(xpos + left_side, ypos),
                 },
-                PartOfLevel
+                PartOfLevel,
             ));
             commands.spawn((
                 SpriteBundle {
@@ -128,7 +114,7 @@ fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
                 Obstacle {
                     pos: Vec2::new(xpos - left_side, ypos),
                 },
-                PartOfLevel
+                PartOfLevel,
             ));
 
             ypos += 100.0;
@@ -138,16 +124,32 @@ fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
 
 fn initial_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
-    setup_level(&mut commands, asset_server);
+
+    // Load all sprites
+    let all_assets = vec![
+        "racecar_center.png",
+        "racecar_left.png",
+        "racecar_right.png",
+    ];
+    let mut all_sprites = AllSprite {
+        map: Default::default(),
+    };
+    for asset in all_assets {
+        all_sprites
+            .map
+            .insert(asset.to_string(), asset_server.load(asset));
+    }
+    setup_level(&mut commands, asset_server, &all_sprites);
+    commands.spawn(all_sprites);
 }
 
-fn setup_level(commands: &mut Commands, asset_server: Res<AssetServer>) {
+fn setup_level(commands: &mut Commands, asset_server: Res<AssetServer>, all_sprites: &AllSprite) {
     let mut transform = Transform::from_xyz(100., 0., 0.);
     transform.scale = Vec3::new(0.2, 0.2, 0.2);
 
     commands.spawn((
         SpriteBundle {
-            texture: asset_server.load("racecar_center.png"),
+            texture: get_texture(all_sprites, "racecar_center.png"),
             transform,
             ..default()
         },
@@ -155,14 +157,10 @@ fn setup_level(commands: &mut Commands, asset_server: Res<AssetServer>) {
             pos: Vec2::new(100., 0.),
             vel: Vec2::new(0., 0.),
             direction: Vec2::new(0., 1.),
-            BASE_ACC: 1.,
-            MIN_SPEED: 2.,
-            BOOST_SPEED: 10.,
-            TOP_SPEED: 40.,
-            STEER_INCREMENT_ANGLE: 0.1,
-            MAX_STEER_ANGLE: 0.5,
-            FRITION_SPEED_LOSS: 1.0,
+            base_acc: 1.,
+            top_speed: 40.,
         },
+        PartOfLevel,
     ));
     setup_obstacles(commands, asset_server);
 
@@ -184,7 +182,7 @@ fn setup_level(commands: &mut Commands, asset_server: Res<AssetServer>) {
             ..default()
         }),
         TimerText,
-        PartOfLevel
+        PartOfLevel,
     ));
 }
 
@@ -195,6 +193,7 @@ fn sprite_movement(
     mut sprite_position: Query<(&mut Car, &mut Transform, &mut Handle<Image>)>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     asset_server: Res<AssetServer>,
+    sprites: Query<&AllSprite>,
 ) {
     for (mut car, mut transform, mut texture) in &mut sprite_position {
         // Finds the car
@@ -203,20 +202,22 @@ fn sprite_movement(
             car.direction = car
                 .direction
                 .rotate(Vec2::from_angle(0.001 * car.vel.length()));
-            *texture = asset_server.load("racecar_left.png");
+            *texture = get_texture(sprites.get_single().unwrap(), "racecar_left.png");
         } else if keyboard_input.pressed(KeyCode::KeyD) {
             car.direction = car
                 .direction
                 .rotate(Vec2::from_angle(-0.001 * car.vel.length()));
-            *texture = asset_server.load("racecar_right.png");
+            *texture = get_texture(sprites.get_single().unwrap(), "racecar_right.png");
         } else {
-            *texture = asset_server.load("racecar_center.png");
+            *texture = get_texture(sprites.get_single().unwrap(), "racecar_center.png");
         }
-        // if keyboard_input.just_pressed(KeyCode::KeyW) {
-        //     car.vel = car.vel + car.direction * car.BOOST_SPEED;
-        // }
 
-        let car_velocity_update = car.direction * car.base_acc;
+        let mut car_velocity_update = car.direction * car.base_acc;
+        if car.vel.length() > 0.000001 {
+            car_velocity_update -=
+                car.vel.angle_between(car.direction).abs() * car.vel * 0.1;
+        }
+
         car.vel += car_velocity_update;
 
         // Limit the length of the vector to car.top_speed and car.min_speed
@@ -260,6 +261,7 @@ fn collision_update_system(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     to_delete: Query<Entity, With<PartOfLevel>>,
+    sprites: Query<&AllSprite>,
 ) {
     let car = car.single_mut();
     let mut game_over = false;
@@ -275,6 +277,6 @@ fn collision_update_system(
         for entity in to_delete.iter() {
             commands.entity(entity).despawn();
         }
-        setup_level(&mut commands, asset_server);
+        setup_level(&mut commands, asset_server, sprites.get_single().unwrap());
     }
 }
