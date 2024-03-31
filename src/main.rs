@@ -1,6 +1,6 @@
 //! Renders a 2D scene containing a single, moving sprite.
 
-use bevy::{prelude::*, utils::hashbrown::HashMap};
+use bevy::{audio::Volume, prelude::*, utils::hashbrown::HashMap};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, States)]
 enum AppState {
@@ -368,7 +368,13 @@ fn setup_obstacles(commands: &mut Commands, asset_server: &Res<AssetServer>) {
 
 fn initial_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
-
+    let mut audio = AudioBundle {
+        source: asset_server.load("game_music.ogg"),
+        ..default()
+    };
+    audio.settings.paused = true;
+    commands.spawn(audio);
+    
     // Load all sprites
     let all_assets = vec![
         "racecar_center.png",
@@ -679,8 +685,9 @@ fn collision_update_system(
     mut next_state: ResMut<NextState<AppState>>,
     mut comands: Commands,
     time: Res<Time>,
+    audio: Query<&AudioSink>,
 ) {
-    let car = car.single_mut();
+    let mut car = car.single_mut();
     let mut game_over = false;
     for obstacle in &obstacles {
         if car.pos.distance(obstacle.pos) < 100. {
@@ -711,6 +718,7 @@ fn check_end_to_start(
     mut car: Query<&mut Car>,
     asset_server: Res<AssetServer>,
     sprites: Query<&AllSprite>,
+    audio: Query<&AudioSink>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         for entity in to_delete.iter() {
@@ -727,6 +735,7 @@ fn check_end_to_start(
         }
         setup_start(&mut commands, sprites.get_single().unwrap());
         setup_level(&mut commands, asset_server, sprites.get_single().unwrap());
+        audio.get_single().unwrap().pause();
     }
 }
 
@@ -735,10 +744,12 @@ fn check_start_level(
     mut next_state: ResMut<NextState<AppState>>,
     to_delete: Query<Entity, With<PartOfStart>>,
     mut commands: Commands,
+    audio: Query<&AudioSink>,
     mut car: Query<&mut Car>,
     time: Res<Time>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
+        audio.get_single().unwrap().play();
         for entity in to_delete.iter() {
             commands.entity(entity).despawn();
         }
