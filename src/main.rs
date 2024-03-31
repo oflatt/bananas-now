@@ -9,7 +9,13 @@ enum AppState {
 }
 
 fn main() {
-    let draw_level = (sprite_draw, obstacle_draw, customer_draw, projectile_draw);
+    let draw_level = (
+        sprite_draw,
+        obstacle_draw,
+        customer_draw,
+        projectile_draw,
+        draw_num_ammo,
+    );
     App::new()
         .insert_state(AppState::StartLevel(0))
         .add_plugins(DefaultPlugins)
@@ -60,6 +66,7 @@ struct Car {
     steer_strength: f32,
     drift_strength: f32,
     projectile_speed: f32,
+    ammo: HashMap<Merch, usize>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -156,6 +163,10 @@ fn lv2_turns() -> Vec<(usize, f32)> {
         (10, 150.0),
         (10, 100.0),
     ]
+}
+
+fn lv1_ammo() -> HashMap<Merch, usize> {
+    vec![(Merch::Banana, 2)].into_iter().collect()
 }
 
 fn lv1_customers() -> Vec<Customer> {
@@ -384,11 +395,19 @@ fn setup_customers(commands: &mut Commands, all_sprites: &AllSprite) {
     }
 }
 
-fn setup_level(commands: &mut Commands, asset_server: Res<AssetServer>, all_sprites: &AllSprite) {
-    let mut transform = Transform::from_xyz(100., 0., 0.);
-    transform.scale = Vec3::new(0.2, 0.2, 0.2);
+#[derive(Component)]
+struct AmmoUi {
+    merch: Merch,
+}
 
-    setup_customers(commands, all_sprites);
+#[derive(Component)]
+struct AmmoUiText {
+    merch: Merch,
+}
+
+fn setup_car(commands: &mut Commands, all_sprites: &AllSprite) {
+    let mut transform = Transform::from_xyz(0., 0., 0.);
+    transform.scale = Vec3::new(0.2, 0.2, 0.2);
     commands.spawn((
         SpriteBundle {
             texture: get_texture(all_sprites, "racecar_center.png"),
@@ -404,9 +423,55 @@ fn setup_level(commands: &mut Commands, asset_server: Res<AssetServer>, all_spri
             steer_strength: 0.0015,
             drift_strength: 0.08,
             projectile_speed: 100.0,
+            ammo: lv1_ammo(),
         },
         PartOfLevel,
     ));
+
+    let mut transform = Transform::from_xyz(500.0, 400.0, 4.);
+    transform.scale = Vec3::new(0.2, 0.2, 0.2);
+    // spawn banana UI element
+    commands.spawn((
+        SpriteBundle {
+            texture: get_texture(all_sprites, "smoke1.png"),
+            transform,
+            ..default()
+        },
+        AmmoUi {
+            merch: Merch::Banana,
+        },
+        PartOfLevel,
+    ));
+
+    let banana_text = TextBundle::from_section(
+        "2",
+        TextStyle {
+            font_size: 50.0,
+            color: Color::GOLD,
+            ..Default::default()
+        },
+    )
+    .with_text_justify(JustifyText::Center)
+    .with_style(Style {
+        position_type: PositionType::Absolute,
+        top: Val::Px(5.0),
+        right: Val::Px(5.0),
+        ..default()
+    });
+
+    // spawn banana text UI element
+    commands.spawn((
+        banana_text,
+        AmmoUiText {
+            merch: Merch::Banana,
+        },
+        PartOfLevel,
+    ));
+}
+
+fn setup_level(commands: &mut Commands, asset_server: Res<AssetServer>, all_sprites: &AllSprite) {
+    setup_customers(commands, all_sprites);
+    setup_car(commands, all_sprites);
     setup_obstacles(commands, asset_server);
 
     commands.spawn((
@@ -576,11 +641,11 @@ fn detect_shoot_system(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut commands: Commands,
     all_sprites: Query<&AllSprite>,
-    car: Query<&Car>,
+    mut car: Query<&mut Car>,
 ) {
-    let car = car.iter().next().unwrap();
+    let mut car = car.single_mut();
     for keycode in [KeyCode::KeyK, KeyCode::KeyJ] {
-        if keyboard_input.just_pressed(keycode) {
+        if car.ammo.get(&Merch::Banana).unwrap_or(&0) != &0 && keyboard_input.just_pressed(keycode) {
             let mut transform = Transform::from_xyz(car.pos.x, car.pos.y, 1.0);
             transform.scale = Vec3::new(0.1, 0.1, 0.1);
             let angle = if keycode == KeyCode::KeyK {
@@ -602,10 +667,14 @@ fn detect_shoot_system(
                 },
                 PartOfLevel,
             ));
+            let _map = car.ammo.get_mut(&Merch::Banana).map(|x| {
+                if *x > 0 {
+                    *x -= 1
+                }
+            });
         }
     }
 }
-
 
 fn detect_projectile_hit(
     mut commands: Commands,
@@ -619,5 +688,17 @@ fn detect_projectile_hit(
                 commands.entity(customer_entity).despawn();
             }
         }
+    }
+}
+
+fn draw_num_ammo(
+    ammo_ui: Query<(&AmmoUi, &mut Transform)>,
+    mut ammo_ui_text: Query<(&AmmoUiText, &mut Text)>,
+    car: Query<&Car>,
+) {
+    let car = car.iter().next().unwrap();
+
+    for (ammo, mut text) in &mut ammo_ui_text {
+        text.sections[0].value = format!("{}", car.ammo.get(&ammo.merch).unwrap_or(&0));
     }
 }
