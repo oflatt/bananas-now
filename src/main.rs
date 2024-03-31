@@ -1,6 +1,6 @@
 //! Renders a 2D scene containing a single, moving sprite.
 
-use bevy::{prelude::*, utils::hashbrown::HashMap, window::PrimaryWindow};
+use bevy::{prelude::*, utils::hashbrown::HashMap};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, States)]
 enum AppState {
@@ -9,23 +9,25 @@ enum AppState {
 }
 
 fn main() {
+    let draw_level = (sprite_draw, obstacle_draw, customer_draw, projectile_draw);
     App::new()
         .insert_state(AppState::StartLevel(0))
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, initial_setup)
         .add_systems(
             Update,
-            (sprite_movement, text_update_system, collision_update_system)
+            (
+                sprite_movement,
+                text_update_system,
+                collision_update_system,
+                detect_shoot_system,
+                projectile_update,
+                detect_projectile_hit,
+            )
                 .run_if(in_state(AppState::Game)),
         )
-        .add_systems(
-            Update,
-            (sprite_draw, obstacle_draw).run_if(in_state(AppState::Game)),
-        )
-        .add_systems(
-            Update,
-            (sprite_draw, obstacle_draw).run_if(in_state(AppState::StartLevel(0))),
-        )
+        .add_systems(Update, draw_level.run_if(in_state(AppState::Game)))
+        .add_systems(Update, draw_level.run_if(in_state(AppState::StartLevel(0))))
         .add_systems(Update, (check_start_level,))
         .run();
 }
@@ -57,6 +59,25 @@ struct Car {
     top_speed: f32,
     steer_strength: f32,
     drift_strength: f32,
+    projectile_speed: f32,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+enum Merch {
+    Banana,
+}
+
+#[derive(Component)]
+struct Customer {
+    pos: Vec2,
+    wants: Merch,
+}
+
+#[derive(Component)]
+struct Projectile {
+    pos: Vec2,
+    vel: Vec2,
+    merch: Merch,
 }
 
 #[derive(Component)]
@@ -135,6 +156,13 @@ fn lv2_turns() -> Vec<(usize, f32)> {
         (10, 150.0),
         (10, 100.0),
     ]
+}
+
+fn lv1_customers() -> Vec<Customer> {
+    vec![Customer {
+        pos: Vec2::new(20., 500.),
+        wants: Merch::Banana,
+    }]
 }
 
 fn lv1_turns() -> Vec<(usize, f32, f32)> {
@@ -219,7 +247,6 @@ fn lv1_turns() -> Vec<(usize, f32, f32)> {
     ]
 }
 
-
 fn get_texture(all_sprites: &AllSprite, key: &str) -> Handle<Image> {
     all_sprites.map.get(key).unwrap().clone()
 }
@@ -300,6 +327,8 @@ fn initial_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         "racecar_center.png",
         "racecar_left.png",
         "racecar_right.png",
+        "smoke1.png",
+        "smoke2.png",
     ];
     let mut all_sprites = AllSprite {
         map: Default::default(),
@@ -314,7 +343,7 @@ fn initial_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(all_sprites);
 }
 
-fn setup_start(commands: &mut Commands, all_sprites: &AllSprite) {
+fn setup_start(commands: &mut Commands, _all_sprites: &AllSprite) {
     // make text "press space to start"
     let mut transform = Transform::from_xyz(0., 0., 3.);
     transform.scale = Vec3::new(0.2, 0.2, 0.2);
@@ -339,10 +368,27 @@ fn setup_start(commands: &mut Commands, all_sprites: &AllSprite) {
     ));
 }
 
+fn setup_customers(commands: &mut Commands, all_sprites: &AllSprite) {
+    for customer in lv1_customers() {
+        let mut transform = Transform::from_xyz(customer.pos.x, customer.pos.y, 1.0);
+        transform.scale = Vec3::new(0.1, 0.1, 0.1);
+        commands.spawn((
+            SpriteBundle {
+                texture: get_texture(all_sprites, "smoke1.png"),
+                transform,
+                ..default()
+            },
+            customer,
+            PartOfLevel,
+        ));
+    }
+}
+
 fn setup_level(commands: &mut Commands, asset_server: Res<AssetServer>, all_sprites: &AllSprite) {
     let mut transform = Transform::from_xyz(100., 0., 0.);
     transform.scale = Vec3::new(0.2, 0.2, 0.2);
 
+    setup_customers(commands, all_sprites);
     commands.spawn((
         SpriteBundle {
             texture: get_texture(all_sprites, "racecar_center.png"),
@@ -357,6 +403,7 @@ fn setup_level(commands: &mut Commands, asset_server: Res<AssetServer>, all_spri
             top_speed: 40.,
             steer_strength: 0.0015,
             drift_strength: 0.08,
+            projectile_speed: 100.0,
         },
         PartOfLevel,
     ));
@@ -492,7 +539,7 @@ fn collision_update_system(
 fn check_start_level(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut next_state: ResMut<NextState<AppState>>,
-    mut to_delete: Query<Entity, With<PartOfStart>>,
+    to_delete: Query<Entity, With<PartOfStart>>,
     mut commands: Commands,
 ) {
     if keyboard_input.pressed(KeyCode::Space) {
@@ -500,5 +547,77 @@ fn check_start_level(
             commands.entity(entity).despawn();
         }
         next_state.set(AppState::Game);
+    }
+}
+
+fn customer_draw(mut customers: Query<(&Customer, &mut Transform)>, car: Query<&Car>) {
+    let car = car.iter().next().unwrap();
+    for (customer, mut transform) in &mut customers {
+        transform.translation.x = customer.pos.x;
+        transform.translation.y = customer.pos.y - car.pos.y;
+    }
+}
+
+fn projectile_update(mut projectiles: Query<&mut Projectile>) {
+    for mut projectile in &mut projectiles {
+        projectile.pos = projectile.pos + projectile.vel;
+    }
+}
+
+fn projectile_draw(mut projectiles: Query<(&Projectile, &mut Transform)>, car: Query<&Car>) {
+    let car = car.iter().next().unwrap();
+    for (projectile, mut transform) in &mut projectiles {
+        transform.translation.x = projectile.pos.x;
+        transform.translation.y = projectile.pos.y - car.pos.y;
+    }
+}
+
+fn detect_shoot_system(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut commands: Commands,
+    all_sprites: Query<&AllSprite>,
+    car: Query<&Car>,
+) {
+    let car = car.iter().next().unwrap();
+    for keycode in [KeyCode::KeyK, KeyCode::KeyJ] {
+        if keyboard_input.pressed(keycode) {
+            let mut transform = Transform::from_xyz(car.pos.x, car.pos.y, 1.0);
+            transform.scale = Vec3::new(0.1, 0.1, 0.1);
+            let angle = if keycode == KeyCode::KeyK {
+                -std::f32::consts::FRAC_PI_2
+            } else {
+                std::f32::consts::FRAC_PI_2
+            };
+            commands.spawn((
+                SpriteBundle {
+                    texture: get_texture(all_sprites.get_single().unwrap(), "smoke2.png"),
+                    transform,
+                    ..default()
+                },
+                Projectile {
+                    pos: car.pos,
+                    // rotate direction so it shoots from right if J is pressed
+                    vel: car.direction.rotate(Vec2::from_angle(angle)) * car.projectile_speed,
+                    merch: Merch::Banana,
+                },
+                PartOfLevel,
+            ));
+        }
+    }
+}
+
+
+fn detect_projectile_hit(
+    mut commands: Commands,
+    mut projectiles: Query<(Entity, &Projectile)>,
+    mut customers: Query<(Entity, &Customer)>,
+) {
+    for (projectile_entity, projectile) in &mut projectiles.iter() {
+        for (customer_entity, customer) in &mut customers.iter() {
+            if projectile.pos.distance(customer.pos) < 100. && projectile.merch == customer.wants {
+                commands.entity(projectile_entity).despawn();
+                commands.entity(customer_entity).despawn();
+            }
+        }
     }
 }
