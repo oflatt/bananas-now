@@ -100,10 +100,15 @@ enum Merch {
     Banana,
 }
 
-#[derive(Component)]
+#[derive(Component, Clone)]
 struct Customer {
     pos: Vec2,
     wants: Merch,
+}
+
+#[derive(Component)]
+struct CustomerBubble {
+    pos: Vec2,
 }
 
 #[derive(Component)]
@@ -122,13 +127,13 @@ fn lv2_turns() -> Vec<(usize, f32)> {
     // (how many blocks to render, x position of those blocks)
     vec![
         (10, 0.0),
-        (10, 50.0),
         (10, 100.0),
-        (10, 150.0),
         (10, 200.0),
-        (10, 150.0),
+        (10, 300.0),
+        (10, 300.0),
+        (10, 200.0),
         (10, 100.0),
-        (10, 50.0),
+        (10, 0.0),
         (5, 0.0),
         (5, -50.0),
         (5, -100.0),
@@ -196,18 +201,59 @@ fn lv1_ammo() -> HashMap<Merch, usize> {
 }
 
 fn lv1_customers() -> Vec<Customer> {
-    vec![Customer {
-        pos: Vec2::new(20., 500.),
-        wants: Merch::Banana,
-    }]
+    vec![
+        Customer {
+            pos: Vec2::new(400., 500.),
+            wants: Merch::Banana,
+        },
+        Customer {
+            pos: Vec2::new(-400., 1500.),
+            wants: Merch::Banana,
+        },
+    ]
+}
+
+fn turn_right(
+    startpos: f32,
+    width: f32,
+    sharpness: f32,
+    duration: usize,
+) -> Vec<(usize, f32, f32)> {
+    let mut res = vec![];
+    let mut xpos = startpos;
+    for _i in 0..duration {
+        res.push((1, xpos, width));
+        xpos += sharpness;
+    }
+    res
 }
 
 fn lv1_turns() -> Vec<(usize, f32, f32)> {
     // (how many blocks to render, x position of those blocks)
-    vec![
+    let mut res = vec![
         (10, 0.0, 0.0),
         (10, 0.0, 10.0),
         (10, 0.0, 20.0),
+        (10, 0.0, 0.0),
+    ];
+    // right
+    res.extend(turn_right(0.0, 0.0, 20.0, 20));
+    // strait
+    res.extend(turn_right(20.0 * 20.0, 0.0, 0.0, 20));
+    // left
+    res.extend(turn_right(20.0 * 20.0, 0.0, -20.0, 40));
+    //back right
+    res.extend(turn_right(-20.0 * 20.0, 0.0, 20.0, 20));
+
+    // big area
+    res.extend(turn_right(0.0, 300.0, 0.0, 50));
+
+    // right
+    res.extend(turn_right(0.0, 0.0, 20.0, 20));
+    // mismatched left
+    res.extend(turn_right(0.0, 0.0, -20.0, 20));
+    res.extend(vec![
+        (10, 0.0, 0.0),
         (10, 0.0, 40.0),
         (10, 0.0, 80.0),
         (10, 0.0, 120.0),
@@ -281,7 +327,8 @@ fn lv1_turns() -> Vec<(usize, f32, f32)> {
         (50, 200.0, 0.0),
         (30, 150.0, 0.0),
         (20, 100.0, 0.0),
-    ]
+    ]);
+    res
 }
 
 fn get_texture(all_sprites: &AllSprite, key: &str) -> Handle<Image> {
@@ -374,7 +421,7 @@ fn initial_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     };
     audio.settings.paused = true;
     commands.spawn(audio);
-    
+
     // Load all sprites
     let all_assets = vec![
         "racecar_center.png",
@@ -384,6 +431,9 @@ fn initial_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         "smoke2.png",
         "banana.png",
         "green-circle.png",
+        "finish.png",
+        "banana-car.png",
+        "banana-speech.png",
     ];
     let mut all_sprites = AllSprite {
         map: Default::default(),
@@ -447,7 +497,76 @@ fn setup_start(commands: &mut Commands, _all_sprites: &AllSprite) {
         .with_style(Style {
             position_type: PositionType::Absolute,
             top: Val::Percent(50.0),
-            left: Val::Percent(40.0),
+            left: Val::Percent(20.0),
+            ..default()
+        }),
+        PartOfStart,
+    ));
+
+    // make text that says "give 10 bananas to 10 customers!"
+    let mut transform = Transform::from_xyz(0., 0., 3.);
+    transform.scale = Vec3::new(0.2, 0.2, 0.2);
+    commands.spawn((
+        // Create a TextBundle that has a Text with a single section.
+        TextBundle::from_section(
+            "Give 10 bananas to 10 customers!",
+            TextStyle {
+                font_size: 50.0,
+                color: Color::GOLD,
+                ..Default::default()
+            },
+        )
+        .with_text_justify(JustifyText::Center)
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Percent(40.0),
+            left: Val::Percent(20.0),
+            ..default()
+        }),
+        PartOfStart,
+    ));
+
+    // make text that says "use J and K to shoot bananas"
+    let mut transform = Transform::from_xyz(0., 0., 3.);
+    transform.scale = Vec3::new(0.2, 0.2, 0.2);
+    commands.spawn((
+        // Create a TextBundle that has a Text with a single section.
+        TextBundle::from_section(
+            "Use J and K to shoot bananas",
+            TextStyle {
+                font_size: 50.0,
+                color: Color::GOLD,
+                ..Default::default()
+            },
+        )
+        .with_text_justify(JustifyText::Center)
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Percent(30.0),
+            left: Val::Percent(20.0),
+            ..default()
+        }),
+        PartOfStart,
+    ));
+
+    // make text that says "everything MUST GO!"
+    let mut transform = Transform::from_xyz(0., 0., 3.);
+    transform.scale = Vec3::new(0.2, 0.2, 0.2);
+    commands.spawn((
+        // Create a TextBundle that has a Text with a single section.
+        TextBundle::from_section(
+            "Everything MUST GO!",
+            TextStyle {
+                font_size: 50.0,
+                color: Color::GOLD,
+                ..Default::default()
+            },
+        )
+        .with_text_justify(JustifyText::Center)
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Percent(20.0),
+            left: Val::Percent(20.0),
             ..default()
         }),
         PartOfStart,
@@ -457,23 +576,35 @@ fn setup_start(commands: &mut Commands, _all_sprites: &AllSprite) {
 fn setup_customers(commands: &mut Commands, all_sprites: &AllSprite) {
     for customer in lv1_customers() {
         let mut transform = Transform::from_xyz(customer.pos.x, customer.pos.y, 1.0);
-        transform.scale = Vec3::new(0.1, 0.1, 0.1);
+        transform.scale = Vec3::new(1.0, 1.0, 1.0) * 0.15;
         commands.spawn((
             SpriteBundle {
-                texture: get_texture(all_sprites, "smoke1.png"),
+                texture: get_texture(all_sprites, "banana-car.png"),
                 transform,
                 ..default()
             },
-            customer,
+            customer.clone(),
+            PartOfLevel,
+        ));
+
+        // spawn a bubble above the car
+        let mut transform = Transform::from_xyz(customer.pos.x, customer.pos.y + 100., 3.0);
+        transform.scale = Vec3::new(1.0, 1.0, 1.0) * 0.15;
+        let bubble_pos = Vec2::new(customer.pos.x, customer.pos.y + 100.);
+        commands.spawn((
+            SpriteBundle {
+                texture: get_texture(all_sprites, "banana-speech.png"),
+                transform,
+                ..default()
+            },
+            CustomerBubble { pos: bubble_pos },
             PartOfLevel,
         ));
     }
 }
 
 #[derive(Component)]
-struct AmmoUi {
-    merch: Merch,
-}
+struct AmmoUi {}
 
 #[derive(Component)]
 struct AmmoUiText {
@@ -495,8 +626,8 @@ fn setup_car(commands: &mut Commands, all_sprites: &AllSprite) {
             direction: Vec2::new(0., 1.),
             base_acc: 1.,
             top_speed: 40.,
-            steer_strength: 0.0015,
-            drift_strength: 0.08,
+            steer_strength: 0.0012,
+            drift_strength: 0.06,
             projectile_speed: 100.0,
             ammo: lv1_ammo(),
             start_time: 0.0,
@@ -513,9 +644,7 @@ fn setup_car(commands: &mut Commands, all_sprites: &AllSprite) {
             transform,
             ..default()
         },
-        AmmoUi {
-            merch: Merch::Banana,
-        },
+        AmmoUi {},
         PartOfLevel,
     ));
 
@@ -547,16 +676,16 @@ fn setup_car(commands: &mut Commands, all_sprites: &AllSprite) {
 
 fn setup_goals(commands: &mut Commands, all_sprites: &AllSprite) {
     let mut transform = Transform::from_xyz(100., 10000., 2.0);
-    transform.scale = Vec3::new(1.0, 1.0, 1.0);
+    transform.scale = Vec3::new(1.0, 1.0, 1.0) * 0.2;
     // green circle for goal
     commands.spawn((
         SpriteBundle {
-            texture: get_texture(all_sprites, "green-circle.png"),
+            texture: get_texture(all_sprites, "finish.png"),
             ..default()
         },
         Goal {
-            pos: Vec2::new(100., 10000.),
-            radius: 100.,
+            pos: Vec2::new(100., 100000.),
+            radius: 200.,
         },
         PartOfLevel,
     ));
@@ -614,7 +743,10 @@ fn sprite_movement(
             *texture = get_texture(sprites.get_single().unwrap(), "racecar_center.png");
         }
 
-        let mut car_velocity_update = car.direction * car.base_acc;
+        let mut car_velocity_update = Vec2::new(0.0, 0.0);
+        if keyboard_input.pressed(KeyCode::KeyW) {
+            car_velocity_update += car.direction * car.base_acc;
+        }
         if car.vel.length() > 0.000001 {
             car_velocity_update -=
                 car.vel.angle_between(car.direction).abs() * car.vel * car.drift_strength;
@@ -750,11 +882,19 @@ fn check_start_level(
     }
 }
 
-fn customer_draw(mut customers: Query<(&Customer, &mut Transform)>, car: Query<&Car>) {
+fn customer_draw(
+    mut customers: Query<(&Customer, &mut Transform)>,
+    car: Query<&Car>,
+    mut bubbles: Query<&mut CustomerBubble>,
+) {
     let car = car.iter().next().unwrap();
     for (customer, mut transform) in &mut customers {
         set_transformation(&mut transform, customer.pos.x, customer.pos.y - car.pos.y, 0.1);
     }
+
+    // for mut bubble in &mut bubbles {
+    //     bubble.pos.y = bubble.pos.y - car.pos.y;
+    // }
 }
 
 fn projectile_update(mut projectiles: Query<&mut Projectile>) {
@@ -814,12 +954,21 @@ fn detect_projectile_hit(
     mut commands: Commands,
     projectiles: Query<(Entity, &Projectile)>,
     customers: Query<(Entity, &Customer)>,
+    obstacles: Query<(Entity, &Obstacle)>,
 ) {
     for (projectile_entity, projectile) in &mut projectiles.iter() {
         for (customer_entity, customer) in &mut customers.iter() {
             if projectile.pos.distance(customer.pos) < 100. && projectile.merch == customer.wants {
                 commands.entity(projectile_entity).despawn();
                 commands.entity(customer_entity).despawn();
+            }
+        }
+    }
+
+    for (projectile_entity, projectile) in &mut projectiles.iter() {
+        for (_obstacle_entity, obstacle) in &mut obstacles.iter() {
+            if projectile.pos.distance(obstacle.pos) < 100. {
+                commands.entity(projectile_entity).despawn();
             }
         }
     }
@@ -842,7 +991,7 @@ fn check_in_goal(
 ) {
     let car = car.iter().next().unwrap();
     for goal in goals.iter() {
-        if car.pos.distance(goal.pos) < goal.radius {
+        if car.pos.y > goal.pos.y && car.pos.distance(goal.pos) < goal.radius {
             next_state.set(AppState::EndLevel {
                 level: 0,
                 did_win: true,
