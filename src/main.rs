@@ -22,6 +22,7 @@ fn main() {
                 collision_update_system,
                 detect_shoot_system,
                 projectile_update,
+                detect_projectile_hit,
             )
                 .run_if(in_state(AppState::Game)),
         )
@@ -61,6 +62,7 @@ struct Car {
     projectile_speed: f32,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 enum Merch {
     Banana,
 }
@@ -591,6 +593,22 @@ fn detect_shoot_system(
                 },
                 PartOfLevel,
             ));
+        }
+    }
+}
+
+
+fn detect_projectile_hit(
+    mut commands: Commands,
+    mut projectiles: Query<(Entity, &Projectile)>,
+    mut customers: Query<(Entity, &Customer)>,
+) {
+    for (projectile_entity, projectile) in &mut projectiles.iter() {
+        for (customer_entity, customer) in &mut customers.iter() {
+            if projectile.pos.distance(customer.pos) < 100. && projectile.merch == customer.wants {
+                commands.entity(projectile_entity).despawn();
+                commands.entity(customer_entity).despawn();
+            }
         }
     }
 }
