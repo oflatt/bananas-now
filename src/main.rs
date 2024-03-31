@@ -1,6 +1,10 @@
 //! Renders a 2D scene containing a single, moving sprite.
 
+use std::cmp::{max, min};
+
 use bevy::{audio::Volume, prelude::*, utils::hashbrown::HashMap};
+
+const HEIGHT_OF_WALL: f32 = 160.0;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, States)]
 enum AppState {
@@ -207,9 +211,13 @@ fn lv1_customers() -> Vec<Customer> {
             wants: Merch::Banana,
         },
         Customer {
-            pos: Vec2::new(-400., 1500.),
+            pos: Vec2::new(-400., 100000.),
             wants: Merch::Banana,
         },
+        Customer {
+            pos: Vec2::new(700., 200000.),
+            wants: Merch::Banana,
+        }
     ]
 }
 
@@ -383,8 +391,8 @@ fn setup_obstacles(commands: &mut Commands, asset_server: &Res<AssetServer>) {
                             // }
 
     for (num, xpos, more_offset) in lv1_turns() {
-        let height_of_wall = 160.0;
-        let mut transform = Transform::from_xyz(xpos, height_of_wall, -1.);
+        
+        let mut transform = Transform::from_xyz(xpos, HEIGHT_OF_WALL, -1.);
         transform.scale = Vec3::new(0.1, 0.1, 0.1);
         for _n in 0..num {
             commands.spawn((
@@ -394,7 +402,7 @@ fn setup_obstacles(commands: &mut Commands, asset_server: &Res<AssetServer>) {
                     ..default()
                 },
                 Obstacle {
-                    pos: Vec2::new(xpos + left_side + more_offset, ypos),
+                    pos: Vec2::new(xpos + left_side - more_offset, ypos),
                 },
                 PartOfLevel,
             ));
@@ -405,12 +413,12 @@ fn setup_obstacles(commands: &mut Commands, asset_server: &Res<AssetServer>) {
                     ..default()
                 },
                 Obstacle {
-                    pos: Vec2::new(xpos - left_side - more_offset, ypos),
+                    pos: Vec2::new(xpos - left_side + more_offset, ypos),
                 },
                 PartOfLevel,
             ));
 
-            ypos += height_of_wall;
+            ypos += HEIGHT_OF_WALL;
         }
     }
 }
@@ -747,7 +755,15 @@ fn sprite_movement(
 
         let mut car_velocity_update = Vec2::new(0.0, 0.0);
         if keyboard_input.pressed(KeyCode::KeyW) {
-            car_velocity_update += car.direction * car.base_acc;
+            let mut min2 = car.vel.length() / 10.0;
+            if min2 > 1.0 {
+                min2 = 1.0;
+            }
+            if min2 < 0.1 {
+                min2 = 0.1;
+            }
+
+            car_velocity_update += car.direction * car.base_acc * min2;
         }
         if car.vel.length() > 0.000001 {
             car_velocity_update -=
