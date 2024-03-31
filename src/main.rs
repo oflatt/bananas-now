@@ -354,16 +354,19 @@ fn get_texture(all_sprites: &AllSprite, key: &str) -> Handle<Image> {
     all_sprites.map.get(key).unwrap().clone()
 }
 
-fn set_transformation(transform: &mut Transform, x: f32, z: f32, scale: f32) {
-    const THETA: f32 = 0.2;
+fn set_transformation(transform: &mut Transform, x: f32, z: f32, scale: f32, vel: f32) {
+    let theta: f32 = (vel.max(0.0) / 10.0).atan() / 3.0;
+    let denom: f32 = z * theta.sin() + 400.0 * theta.cos();
     transform.translation = Vec3::new(
-        x / (z * THETA.sin() - 400.0 * -THETA.cos()) * 400.0,
-        ((z * THETA.cos() - 400.0 * THETA.sin()) / (z * THETA.sin() - 400.0 * -THETA.cos()))
-            * (200.0 / 1.428),
-        400.0 / (z * THETA.sin() - 400.0 * -THETA.cos()),
+        x / denom * 400.0,
+        (z * theta.cos() - 400.0 * theta.sin()) / denom * (200.0 / 1.428),
+        400.0 / denom,
     );
-    transform.scale =
-        400.0 / (z * THETA.sin() - 400.0 * -THETA.cos()) * Vec3::new(scale, scale, scale);
+    if denom > 0.0 {
+        transform.scale = 400.0 / denom * Vec3::new(scale, scale * theta.cos(), scale);
+    } else {
+        transform.scale = Vec3::ZERO;
+    }
 }
 
 fn setup_obstacles(commands: &mut Commands, asset_server: &Res<AssetServer>) {
@@ -848,7 +851,7 @@ fn sprite_draw(
 ) {
     for (mut car, mut transform, mut texture) in &mut sprite_position {
         // Update sprite
-        set_transformation(&mut transform, car.pos.x, 0.0, 0.2);
+        set_transformation(&mut transform, car.pos.x, 0.0, 0.2, car.vel.y);
         transform.rotation =
             Quat::from_rotation_z(car.direction.to_angle() - std::f32::consts::FRAC_PI_2);
     }
@@ -875,6 +878,7 @@ fn obstacle_draw(mut obstacles: Query<(&Obstacle, &mut Transform)>, car: Query<&
             obstacle.pos.x,
             obstacle.pos.y - car.pos.y,
             0.1,
+            car.vel.y,
         );
     }
 }
@@ -972,6 +976,7 @@ fn customer_draw(
             customer.pos.x,
             customer.pos.y - car.pos.y,
             0.1,
+            car.vel.y,
         );
     }
 
@@ -994,6 +999,7 @@ fn projectile_draw(mut projectiles: Query<(&Projectile, &mut Transform)>, car: Q
             projectile.pos.x,
             projectile.pos.y - car.pos.y,
             0.05,
+            car.vel.y,
         );
     }
 }
@@ -1096,7 +1102,7 @@ fn check_in_goal(
 fn draw_goals(mut goals: Query<(&Goal, &mut Transform)>, car: Query<&Car>) {
     let car = car.iter().next().unwrap();
     for (goal, mut transform) in &mut goals {
-        set_transformation(&mut transform, goal.pos.x, goal.pos.y - car.pos.y, 1.0);
+        set_transformation(&mut transform, goal.pos.x, goal.pos.y - car.pos.y, 1.0, car.vel.y);
     }
 }
 
