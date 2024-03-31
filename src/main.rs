@@ -447,22 +447,24 @@ fn sprite_movement(
                 .direction
                 .rotate(Vec2::from_angle(car.steer_strength * car.vel.length()));
             *texture = get_texture(sprites.get_single().unwrap(), "racecar_left.png");
-        } else if keyboard_input.pressed(KeyCode::KeyD) {
+        } if keyboard_input.pressed(KeyCode::KeyD) {
             car.direction = car
                 .direction
                 .rotate(Vec2::from_angle(-car.steer_strength * car.vel.length()));
             *texture = get_texture(sprites.get_single().unwrap(), "racecar_right.png");
-        } else {
+        } 
+        if ! keyboard_input.pressed(KeyCode::KeyA) && ! keyboard_input.pressed(KeyCode::KeyD) {
             *texture = get_texture(sprites.get_single().unwrap(), "racecar_center.png");
         }
 
-        // let mut car_velocity_update = Vec2::new(0., 0.);
-        // if car.vel.length() > 0.000001 {
-        //     car_velocity_update -=
-        //         car.vel.angle_between(car.direction).abs() * car.vel * car.drift_strength;
-        // }
+        let mut car_velocity_update = Vec2::new(0., 0.);
+        if car.vel.length() > 0.000001 {
+            car_velocity_update -=
+                car.vel.angle_between(car.direction).abs() * car.vel * car.drift_strength; 
+                // Maybe this subtraction/multiplication is not correct vector math? We cannot turn
+        }
 
-        // car.vel += car_velocity_update;
+        car.vel += car_velocity_update;
 
         // W key to boost the car (multiple velocity by some factor)
         if keyboard_input.just_pressed(KeyCode::KeyW) {
