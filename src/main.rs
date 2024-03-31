@@ -100,10 +100,15 @@ enum Merch {
     Banana,
 }
 
-#[derive(Component)]
+#[derive(Component, Clone)]
 struct Customer {
     pos: Vec2,
     wants: Merch,
+}
+
+#[derive(Component)]
+struct CustomerBubble {
+    pos: Vec2,
 }
 
 #[derive(Component)]
@@ -384,6 +389,8 @@ fn initial_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         "smoke2.png",
         "banana.png",
         "green-circle.png",
+        "banana-car.png",
+        "banana-speech.png",
     ];
     let mut all_sprites = AllSprite {
         map: Default::default(),
@@ -447,7 +454,30 @@ fn setup_start(commands: &mut Commands, _all_sprites: &AllSprite) {
         .with_style(Style {
             position_type: PositionType::Absolute,
             top: Val::Percent(50.0),
-            left: Val::Percent(40.0),
+            left: Val::Percent(20.0),
+            ..default()
+        }),
+        PartOfStart,
+    ));
+
+    // make text that says "give 10 bananas to 10 customers!"
+    let mut transform = Transform::from_xyz(0., 0., 3.);
+    transform.scale = Vec3::new(0.2, 0.2, 0.2);
+    commands.spawn((
+        // Create a TextBundle that has a Text with a single section.
+        TextBundle::from_section(
+            "Give 10 bananas to 10 customers!",
+            TextStyle {
+                font_size: 50.0,
+                color: Color::GOLD,
+                ..Default::default()
+            },
+        )
+        .with_text_justify(JustifyText::Center)
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Percent(40.0),
+            left: Val::Percent(20.0),
             ..default()
         }),
         PartOfStart,
@@ -457,23 +487,35 @@ fn setup_start(commands: &mut Commands, _all_sprites: &AllSprite) {
 fn setup_customers(commands: &mut Commands, all_sprites: &AllSprite) {
     for customer in lv1_customers() {
         let mut transform = Transform::from_xyz(customer.pos.x, customer.pos.y, 1.0);
-        transform.scale = Vec3::new(0.1, 0.1, 0.1);
+        transform.scale = Vec3::new(1.0, 1.0, 1.0)*0.15;
         commands.spawn((
             SpriteBundle {
-                texture: get_texture(all_sprites, "smoke1.png"),
+                texture: get_texture(all_sprites, "banana-car.png"),
                 transform,
                 ..default()
             },
-            customer,
+            customer.clone(),
+            PartOfLevel,
+        ));
+
+        // spawn a bubble above the car
+        let mut transform = Transform::from_xyz(customer.pos.x, customer.pos.y + 100., 3.0);
+        transform.scale = Vec3::new(1.0, 1.0, 1.0)*0.15;
+        let bubble_pos = Vec2::new(customer.pos.x, customer.pos.y + 100.);
+        commands.spawn((
+            SpriteBundle {
+                texture: get_texture(all_sprites, "banana-speech.png"),
+                transform,
+                ..default()
+            },
+            CustomerBubble { pos: bubble_pos},
             PartOfLevel,
         ));
     }
 }
 
 #[derive(Component)]
-struct AmmoUi {
-    merch: Merch,
-}
+struct AmmoUi {}
 
 #[derive(Component)]
 struct AmmoUiText {
@@ -513,9 +555,7 @@ fn setup_car(commands: &mut Commands, all_sprites: &AllSprite) {
             transform,
             ..default()
         },
-        AmmoUi {
-            merch: Merch::Banana,
-        },
+        AmmoUi {},
         PartOfLevel,
     ));
 
@@ -760,11 +800,15 @@ fn check_start_level(
     }
 }
 
-fn customer_draw(mut customers: Query<(&Customer, &mut Transform)>, car: Query<&Car>) {
+fn customer_draw(mut customers: Query<(&Customer, &mut Transform)>, car: Query<&Car>, mut bubbles: Query<&mut CustomerBubble>) {
     let car = car.iter().next().unwrap();
     for (customer, mut transform) in &mut customers {
         transform.translation.x = customer.pos.x;
         transform.translation.y = customer.pos.y - car.pos.y;
+    }
+
+    for mut bubble in &mut bubbles {
+        bubble.pos.y = bubble.pos.y - car.pos.y;
     }
 }
 
