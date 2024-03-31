@@ -2,7 +2,12 @@
 
 use std::cmp::{max, min};
 
-use bevy::{audio::Volume, prelude::*, utils::hashbrown::HashMap};
+use bevy::{
+    audio::Volume,
+    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
+    prelude::*,
+    utils::hashbrown::HashMap,
+};
 
 const HEIGHT_OF_WALL: f32 = 160.0;
 
@@ -25,6 +30,7 @@ fn main() {
         projectile_draw,
         draw_num_ammo,
         draw_goals,
+        fps_text_update_system,
     );
     App::new()
         .insert_state(AppState::StartLevel(0))
@@ -51,6 +57,7 @@ fn main() {
             (check_start_level,).run_if(in_state(AppState::StartLevel(0))),
         )
         .add_systems(Update, (check_end_to_start,).run_if(run_if_in_end_level))
+        .add_plugins(FrameTimeDiagnosticsPlugin)
         .run();
 }
 
@@ -78,6 +85,10 @@ struct KillerObstacle;
 struct Obstacle {
     pos: Vec2,
 }
+
+/// Marker to find the text entity so we can update it
+#[derive(Component)]
+struct FpsText;
 
 #[derive(Component)]
 struct Goal {
@@ -217,7 +228,7 @@ fn lv1_customers() -> Vec<Customer> {
         Customer {
             pos: Vec2::new(700., 200000.),
             wants: Merch::Banana,
-        }
+        },
     ]
 }
 
@@ -347,10 +358,12 @@ fn set_transformation(transform: &mut Transform, x: f32, z: f32, scale: f32) {
     const THETA: f32 = 0.2;
     transform.translation = Vec3::new(
         x / (z * THETA.sin() - 400.0 * -THETA.cos()) * 400.0,
-        ((z * THETA.cos() - 400.0 * THETA.sin()) / (z * THETA.sin() - 400.0 * -THETA.cos())) * (200.0 / 1.428),
-        400.0 / (z * THETA.sin() - 400.0 * -THETA.cos())
+        ((z * THETA.cos() - 400.0 * THETA.sin()) / (z * THETA.sin() - 400.0 * -THETA.cos()))
+            * (200.0 / 1.428),
+        400.0 / (z * THETA.sin() - 400.0 * -THETA.cos()),
     );
-    transform.scale = 400.0 / (z * THETA.sin() - 400.0 * -THETA.cos()) * Vec3::new(scale, scale, scale);
+    transform.scale =
+        400.0 / (z * THETA.sin() - 400.0 * -THETA.cos()) * Vec3::new(scale, scale, scale);
 }
 
 fn setup_obstacles(commands: &mut Commands, asset_server: &Res<AssetServer>) {
@@ -389,7 +402,6 @@ fn setup_obstacles(commands: &mut Commands, asset_server: &Res<AssetServer>) {
                             // }
 
     for (num, xpos, more_offset) in lv1_turns() {
-        
         let mut transform = Transform::from_xyz(xpos, HEIGHT_OF_WALL, -1.);
         transform.scale = Vec3::new(0.1, 0.1, 0.1);
         for _n in 0..num {
@@ -419,6 +431,50 @@ fn setup_obstacles(commands: &mut Commands, asset_server: &Res<AssetServer>) {
             ypos += HEIGHT_OF_WALL;
         }
     }
+}
+
+fn setup_fps_counter(commands: &mut Commands) {
+    // create our UI root node
+    // this is the wrapper/container for the text
+    // create our text
+    commands
+        .spawn((
+            FpsText,
+            TextBundle {
+                // use two sections, so it is easy to update just the number
+                text: Text::from_sections([
+                    TextSection {
+                        value: "FPS: ".into(),
+                        style: TextStyle {
+                            font_size: 16.0,
+                            color: Color::WHITE,
+                            // if you want to use your game's font asset,
+                            // uncomment this and provide the handle:
+                            // font: my_font_handle
+                            ..default()
+                        },
+                    },
+                    TextSection {
+                        value: " N/A".into(),
+                        style: TextStyle {
+                            font_size: 16.0,
+                            color: Color::WHITE,
+                            // if you want to use your game's font asset,
+                            // uncomment this and provide the handle:
+                            // font: my_font_handle
+                            ..default()
+                        },
+                    },
+                ]),
+                ..Default::default()
+            }.with_text_justify(JustifyText::Left)
+            .with_style(Style {
+                position_type: PositionType::Absolute,
+                bottom: Val::Px(5.0),
+                left: Val::Px(5.0),
+                ..default()
+            }),
+        ));
 }
 
 fn initial_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -451,6 +507,7 @@ fn initial_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             .map
             .insert(asset.to_string(), asset_server.load(asset));
     }
+    setup_fps_counter(&mut commands);
     setup_start(&mut commands, &all_sprites);
     setup_level(&mut commands, asset_server, &all_sprites);
     commands.spawn(all_sprites);
@@ -813,7 +870,12 @@ fn text_update_system(
 fn obstacle_draw(mut obstacles: Query<(&Obstacle, &mut Transform)>, car: Query<&Car>) {
     let car = car.iter().next().unwrap();
     for (obstacle, mut transform) in &mut obstacles {
-        set_transformation(&mut transform, obstacle.pos.x, obstacle.pos.y - car.pos.y, 0.1);
+        set_transformation(
+            &mut transform,
+            obstacle.pos.x,
+            obstacle.pos.y - car.pos.y,
+            0.1,
+        );
     }
 }
 
@@ -828,7 +890,7 @@ fn collision_update_system(
     let mut car = car.single_mut();
     let mut game_over = false;
     for obstacle in &obstacles {
-        if car.pos.distance(obstacle.pos) < 100. {
+        if car.pos.distance(obstacle.pos) < 75. {
             // Game over
             game_over = true;
         }
@@ -905,7 +967,12 @@ fn customer_draw(
 ) {
     let car = car.iter().next().unwrap();
     for (customer, mut transform) in &mut customers {
-        set_transformation(&mut transform, customer.pos.x, customer.pos.y - car.pos.y, 0.1);
+        set_transformation(
+            &mut transform,
+            customer.pos.x,
+            customer.pos.y - car.pos.y,
+            0.1,
+        );
     }
 
     // for mut bubble in &mut bubbles {
@@ -922,7 +989,12 @@ fn projectile_update(mut projectiles: Query<&mut Projectile>) {
 fn projectile_draw(mut projectiles: Query<(&Projectile, &mut Transform)>, car: Query<&Car>) {
     let car = car.iter().next().unwrap();
     for (projectile, mut transform) in &mut projectiles {
-        set_transformation(&mut transform, projectile.pos.x, projectile.pos.y - car.pos.y, 0.05);
+        set_transformation(
+            &mut transform,
+            projectile.pos.x,
+            projectile.pos.y - car.pos.y,
+            0.05,
+        );
     }
 }
 
@@ -1025,5 +1097,42 @@ fn draw_goals(mut goals: Query<(&Goal, &mut Transform)>, car: Query<&Car>) {
     let car = car.iter().next().unwrap();
     for (goal, mut transform) in &mut goals {
         set_transformation(&mut transform, goal.pos.x, goal.pos.y - car.pos.y, 1.0);
+    }
+}
+
+fn fps_text_update_system(
+    diagnostics: Res<DiagnosticsStore>,
+    mut query: Query<&mut Text, With<FpsText>>,
+) {
+    for mut text in &mut query {
+        // try to get a "smoothed" FPS value from Bevy
+        if let Some(value) = diagnostics
+            .get(&FrameTimeDiagnosticsPlugin::FPS)
+            .and_then(|fps| fps.smoothed())
+        {
+            // Format the number as to leave space for 4 digits, just in case,
+            // right-aligned and rounded. This helps readability when the
+            // number changes rapidly.
+            text.sections[1].value = format!("{value:>4.0}");
+
+            // Let's make it extra fancy by changing the color of the
+            // text according to the FPS value:
+            text.sections[1].style.color = if value >= 120.0 {
+                // Above 120 FPS, use green color
+                Color::rgb(0.0, 1.0, 0.0)
+            } else if value >= 60.0 {
+                // Between 60-120 FPS, gradually transition from yellow to green
+                Color::rgb((1.0 - (value - 60.0) / (120.0 - 60.0)) as f32, 1.0, 0.0)
+            } else if value >= 30.0 {
+                // Between 30-60 FPS, gradually transition from red to yellow
+                Color::rgb(1.0, ((value - 30.0) / (60.0 - 30.0)) as f32, 0.0)
+            } else {
+                // Below 30 FPS, use red color
+                Color::rgb(1.0, 0.0, 0.0)
+            }
+        } else {
+            text.sections[1].value = " Failed".into();
+            text.sections[1].style.color = Color::WHITE;
+        }
     }
 }
