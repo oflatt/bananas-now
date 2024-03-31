@@ -1,12 +1,16 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" style="height: 100%">
 
-<body style="margin: 0px;">
+<body style="margin: 0px; width: 100%; height: 100%">
+  <button id="play" style="width: 100%; height: 100%; font-size: 8em">
+    Click to Play!!!
+  </button>
   <script type="module">
     import init from './mygame.js'
 
     function start() {
       this.removeEventListener("click", start);
+      this.remove();
 
       init().catch((error) => {
         if (!error.message.startsWith("Using exceptions for control flow, don't mind me. This isn't actually an error!")) {
@@ -15,7 +19,7 @@
       });
     }
 
-    document.querySelector("html").addEventListener("click", start);
+    document.querySelector("#play").addEventListener("click", start);
   </script>
 </body>
 
