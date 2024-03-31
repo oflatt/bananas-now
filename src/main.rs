@@ -180,7 +180,7 @@ fn lv2_turns() -> Vec<(usize, f32)> {
 }
 
 fn lv1_ammo() -> HashMap<Merch, usize> {
-    vec![(Merch::Banana, 2)].into_iter().collect()
+    vec![(Merch::Banana, 10)].into_iter().collect()
 }
 
 fn lv1_customers() -> Vec<Customer> {
@@ -354,6 +354,7 @@ fn initial_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         "racecar_right.png",
         "smoke1.png",
         "smoke2.png",
+        "banana.png",
     ];
     let mut all_sprites = AllSprite {
         map: Default::default(),
@@ -392,7 +393,7 @@ fn setup_endlevel(commands: &mut Commands, did_win: bool) {
         .with_style(Style {
             position_type: PositionType::Absolute,
             top: Val::Percent(50.0),
-            left: Val::Percent(40.0),
+            left: Val::Percent(20.0),
             ..default()
         }),
         PartOfEndLevel,
@@ -475,11 +476,11 @@ fn setup_car(commands: &mut Commands, all_sprites: &AllSprite) {
     ));
 
     let mut transform = Transform::from_xyz(500.0, 400.0, 4.);
-    transform.scale = Vec3::new(0.2, 0.2, 0.2);
+    transform.scale = Vec3::new(0.05, 0.05, 0.05);
     // spawn banana UI element
     commands.spawn((
         SpriteBundle {
-            texture: get_texture(all_sprites, "smoke1.png"),
+            texture: get_texture(all_sprites, "banana.png"),
             transform,
             ..default()
         },
@@ -490,17 +491,17 @@ fn setup_car(commands: &mut Commands, all_sprites: &AllSprite) {
     ));
 
     let banana_text = TextBundle::from_section(
-        "2",
+        "10",
         TextStyle {
             font_size: 50.0,
-            color: Color::GOLD,
+            color: Color::GREEN,
             ..Default::default()
         },
     )
     .with_text_justify(JustifyText::Center)
     .with_style(Style {
         position_type: PositionType::Absolute,
-        top: Val::Px(5.0),
+        top: Val::Percent(20.0),
         right: Val::Px(5.0),
         ..default()
     });
@@ -732,7 +733,7 @@ fn detect_shoot_system(
         if car.ammo.get(&Merch::Banana).unwrap_or(&0) != &0 && keyboard_input.just_pressed(keycode)
         {
             let mut transform = Transform::from_xyz(car.pos.x, car.pos.y, 1.0);
-            transform.scale = Vec3::new(0.1, 0.1, 0.1);
+            transform.scale = Vec3::new(0.04, 0.04, 0.04);
             let angle = if keycode == KeyCode::KeyK {
                 -std::f32::consts::FRAC_PI_2
             } else {
@@ -740,7 +741,7 @@ fn detect_shoot_system(
             };
             commands.spawn((
                 SpriteBundle {
-                    texture: get_texture(all_sprites.get_single().unwrap(), "smoke2.png"),
+                    texture: get_texture(all_sprites.get_single().unwrap(), "banana.png"),
                     transform,
                     ..default()
                 },
