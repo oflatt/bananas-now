@@ -389,6 +389,7 @@ fn initial_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         "smoke2.png",
         "banana.png",
         "green-circle.png",
+        "finish.png",
         "banana-car.png",
         "banana-speech.png",
     ];
@@ -477,6 +478,52 @@ fn setup_start(commands: &mut Commands, _all_sprites: &AllSprite) {
         .with_style(Style {
             position_type: PositionType::Absolute,
             top: Val::Percent(40.0),
+            left: Val::Percent(20.0),
+            ..default()
+        }),
+        PartOfStart,
+    ));
+
+    // make text that says "use J and K to shoot bananas"
+    let mut transform = Transform::from_xyz(0., 0., 3.);
+    transform.scale = Vec3::new(0.2, 0.2, 0.2);
+    commands.spawn((
+        // Create a TextBundle that has a Text with a single section.
+        TextBundle::from_section(
+            "Use J and K to shoot bananas",
+            TextStyle {
+                font_size: 50.0,
+                color: Color::GOLD,
+                ..Default::default()
+            },
+        )
+        .with_text_justify(JustifyText::Center)
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Percent(30.0),
+            left: Val::Percent(20.0),
+            ..default()
+        }),
+        PartOfStart,
+    ));
+
+    // make text that says "everything MUST GO!"
+    let mut transform = Transform::from_xyz(0., 0., 3.);
+    transform.scale = Vec3::new(0.2, 0.2, 0.2);
+    commands.spawn((
+        // Create a TextBundle that has a Text with a single section.
+        TextBundle::from_section(
+            "Everything MUST GO!",
+            TextStyle {
+                font_size: 50.0,
+                color: Color::GOLD,
+                ..Default::default()
+            },
+        )
+        .with_text_justify(JustifyText::Center)
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Percent(20.0),
             left: Val::Percent(20.0),
             ..default()
         }),
@@ -591,7 +638,7 @@ fn setup_goals(commands: &mut Commands, all_sprites: &AllSprite) {
     // green circle for goal
     commands.spawn((
         SpriteBundle {
-            texture: get_texture(all_sprites, "green-circle.png"),
+            texture: get_texture(all_sprites, "finish.png"),
             ..default()
         },
         Goal {
