@@ -127,13 +127,13 @@ fn lv2_turns() -> Vec<(usize, f32)> {
     // (how many blocks to render, x position of those blocks)
     vec![
         (10, 0.0),
-        (10, 50.0),
         (10, 100.0),
-        (10, 150.0),
         (10, 200.0),
-        (10, 150.0),
+        (10, 300.0),
+        (10, 300.0),
+        (10, 200.0),
         (10, 100.0),
-        (10, 50.0),
+        (10, 0.0),
         (5, 0.0),
         (5, -50.0),
         (5, -100.0),
@@ -207,12 +207,44 @@ fn lv1_customers() -> Vec<Customer> {
     }]
 }
 
+fn turn_right(
+    startpos: f32,
+    width: f32,
+    sharpness: f32,
+    duration: usize,
+) -> Vec<(usize, f32, f32)> {
+    let mut res = vec![];
+    let mut xpos = startpos;
+    for _i in 0..duration {
+        res.push((1, xpos, width));
+        xpos += sharpness;
+    }
+    res
+}
+
 fn lv1_turns() -> Vec<(usize, f32, f32)> {
     // (how many blocks to render, x position of those blocks)
-    vec![
+    let mut res = vec![
         (10, 0.0, 0.0),
         (10, 0.0, 10.0),
         (10, 0.0, 20.0),
+        (10, 0.0, 0.0),
+    ];
+    // right
+    res.extend(turn_right(0.0, 0.0, 20.0, 20));
+    // strait
+    res.extend(turn_right(20.0 * 20.0, 0.0, 0.0, 20));
+    // left
+    res.extend(turn_right(20.0 * 20.0, 0.0, -20.0, 40));
+    //back right
+    res.extend(turn_right(-20.0 * 20.0, 0.0, 20.0, 20));
+
+    // right
+    res.extend(turn_right(0.0, 0.0, 20.0, 20));
+    // mismatched left
+    res.extend(turn_right(0.0, 0.0, -20.0, 20));
+    res.extend(vec![
+        (10, 0.0, 0.0),
         (10, 0.0, 40.0),
         (10, 0.0, 80.0),
         (10, 0.0, 120.0),
@@ -286,7 +318,8 @@ fn lv1_turns() -> Vec<(usize, f32, f32)> {
         (50, 200.0, 0.0),
         (30, 150.0, 0.0),
         (20, 100.0, 0.0),
-    ]
+    ]);
+    res
 }
 
 fn get_texture(all_sprites: &AllSprite, key: &str) -> Handle<Image> {
@@ -297,7 +330,9 @@ fn world_to_screen_x(x: f32, z: f32) -> f32 {
     x / (z * f32::sin(0.341) - 400.0 * -f32::cos(0.341)) * (400.0)
 }
 fn world_to_screen_y(x: f32, z: f32) -> f32 {
-    ((z * f32::cos(0.341) - 400.0 * f32::sin(0.341)) / (z * f32::sin(0.341) - 400.0 * -f32::cos(0.341))) * (200.0 / 1.428)
+    ((z * f32::cos(0.341) - 400.0 * f32::sin(0.341))
+        / (z * f32::sin(0.341) - 400.0 * -f32::cos(0.341)))
+        * (200.0 / 1.428)
 }
 fn world_to_screen_scale(x: f32, z: f32) -> f32 {
     400.0 / (z * f32::sin(0.341) - 400.0 * -f32::cos(0.341))
@@ -379,7 +414,7 @@ fn initial_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     };
     audio.settings.paused = true;
     commands.spawn(audio);
-    
+
     // Load all sprites
     let all_assets = vec![
         "racecar_center.png",
@@ -534,7 +569,7 @@ fn setup_start(commands: &mut Commands, _all_sprites: &AllSprite) {
 fn setup_customers(commands: &mut Commands, all_sprites: &AllSprite) {
     for customer in lv1_customers() {
         let mut transform = Transform::from_xyz(customer.pos.x, customer.pos.y, 1.0);
-        transform.scale = Vec3::new(1.0, 1.0, 1.0)*0.15;
+        transform.scale = Vec3::new(1.0, 1.0, 1.0) * 0.15;
         commands.spawn((
             SpriteBundle {
                 texture: get_texture(all_sprites, "banana-car.png"),
@@ -547,7 +582,7 @@ fn setup_customers(commands: &mut Commands, all_sprites: &AllSprite) {
 
         // spawn a bubble above the car
         let mut transform = Transform::from_xyz(customer.pos.x, customer.pos.y + 100., 3.0);
-        transform.scale = Vec3::new(1.0, 1.0, 1.0)*0.15;
+        transform.scale = Vec3::new(1.0, 1.0, 1.0) * 0.15;
         let bubble_pos = Vec2::new(customer.pos.x, customer.pos.y + 100.);
         commands.spawn((
             SpriteBundle {
@@ -555,7 +590,7 @@ fn setup_customers(commands: &mut Commands, all_sprites: &AllSprite) {
                 transform,
                 ..default()
             },
-            CustomerBubble { pos: bubble_pos},
+            CustomerBubble { pos: bubble_pos },
             PartOfLevel,
         ));
     }
@@ -585,7 +620,7 @@ fn setup_car(commands: &mut Commands, all_sprites: &AllSprite) {
             base_acc: 1.,
             top_speed: 40.,
             steer_strength: 0.0015,
-            drift_strength: 0.08,
+            drift_strength: 0.05,
             projectile_speed: 100.0,
             ammo: lv1_ammo(),
             start_time: 0.0,
@@ -634,7 +669,7 @@ fn setup_car(commands: &mut Commands, all_sprites: &AllSprite) {
 
 fn setup_goals(commands: &mut Commands, all_sprites: &AllSprite) {
     let mut transform = Transform::from_xyz(100., 10000., 2.0);
-    transform.scale = Vec3::new(1.0, 1.0, 1.0);
+    transform.scale = Vec3::new(1.0, 1.0, 1.0) * 0.5;
     // green circle for goal
     commands.spawn((
         SpriteBundle {
@@ -643,7 +678,7 @@ fn setup_goals(commands: &mut Commands, all_sprites: &AllSprite) {
         },
         Goal {
             pos: Vec2::new(100., 10000.),
-            radius: 100.,
+            radius: 200.,
         },
         PartOfLevel,
     ));
@@ -701,7 +736,10 @@ fn sprite_movement(
             *texture = get_texture(sprites.get_single().unwrap(), "racecar_center.png");
         }
 
-        let mut car_velocity_update = car.direction * car.base_acc;
+        let mut car_velocity_update = Vec2::new(0.0, 0.0);
+        if keyboard_input.pressed(KeyCode::KeyW) {
+            car_velocity_update += car.direction * car.base_acc;
+        }
         if car.vel.length() > 0.000001 {
             car_velocity_update -=
                 car.vel.angle_between(car.direction).abs() * car.vel * car.drift_strength;
@@ -762,9 +800,11 @@ fn obstacle_draw(mut obstacles: Query<(&Obstacle, &mut Transform)>, car: Query<&
         transform.translation.x = world_to_screen_x(obstacle.pos.x, obstacle.pos.y - car.pos.y);
         transform.translation.y = world_to_screen_y(obstacle.pos.x, obstacle.pos.y - car.pos.y);
         transform.translation.z = world_to_screen_scale(obstacle.pos.x, obstacle.pos.y - car.pos.y);
-        transform.scale = world_to_screen_scale(obstacle.pos.x, obstacle.pos.y - car.pos.y) * Vec3::new(0.1, 0.1, 0.1);
+        transform.scale = world_to_screen_scale(obstacle.pos.x, obstacle.pos.y - car.pos.y)
+            * Vec3::new(0.1, 0.1, 0.1);
     }
 }
+
 
 fn collision_update_system(
     obstacles: Query<&Obstacle>,
@@ -847,7 +887,11 @@ fn check_start_level(
     }
 }
 
-fn customer_draw(mut customers: Query<(&Customer, &mut Transform)>, car: Query<&Car>, mut bubbles: Query<&mut CustomerBubble>) {
+fn customer_draw(
+    mut customers: Query<(&Customer, &mut Transform)>,
+    car: Query<&Car>,
+    mut bubbles: Query<&mut CustomerBubble>,
+) {
     let car = car.iter().next().unwrap();
     for (customer, mut transform) in &mut customers {
         transform.translation.x = customer.pos.x;
@@ -917,12 +961,21 @@ fn detect_projectile_hit(
     mut commands: Commands,
     projectiles: Query<(Entity, &Projectile)>,
     customers: Query<(Entity, &Customer)>,
+    obstacles: Query<(Entity, &Obstacle)>,
 ) {
     for (projectile_entity, projectile) in &mut projectiles.iter() {
         for (customer_entity, customer) in &mut customers.iter() {
             if projectile.pos.distance(customer.pos) < 100. && projectile.merch == customer.wants {
                 commands.entity(projectile_entity).despawn();
                 commands.entity(customer_entity).despawn();
+            }
+        }
+    }
+
+    for (projectile_entity, projectile) in &mut projectiles.iter() {
+        for (_obstacle_entity, obstacle) in &mut obstacles.iter() {
+            if projectile.pos.distance(obstacle.pos) < 100. {
+                commands.entity(projectile_entity).despawn();
             }
         }
     }
@@ -945,7 +998,7 @@ fn check_in_goal(
 ) {
     let car = car.iter().next().unwrap();
     for goal in goals.iter() {
-        if car.pos.distance(goal.pos) < goal.radius {
+        if car.pos.y > goal.pos.y && car.pos.distance(goal.pos) < goal.radius {
             next_state.set(AppState::EndLevel {
                 level: 0,
                 did_win: true,
@@ -966,3 +1019,4 @@ fn draw_goals(mut goals: Query<(&Goal, &mut Transform)>, car: Query<&Car>) {
         transform.translation.y = goal.pos.y - car.pos.y;
     }
 }
+
