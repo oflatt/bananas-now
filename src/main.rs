@@ -201,10 +201,16 @@ fn lv1_ammo() -> HashMap<Merch, usize> {
 }
 
 fn lv1_customers() -> Vec<Customer> {
-    vec![Customer {
-        pos: Vec2::new(20., 500.),
-        wants: Merch::Banana,
-    }]
+    vec![
+        Customer {
+            pos: Vec2::new(400., 500.),
+            wants: Merch::Banana,
+        },
+        Customer {
+            pos: Vec2::new(-400., 1500.),
+            wants: Merch::Banana,
+        },
+    ]
 }
 
 fn turn_right(
@@ -238,6 +244,9 @@ fn lv1_turns() -> Vec<(usize, f32, f32)> {
     res.extend(turn_right(20.0 * 20.0, 0.0, -20.0, 40));
     //back right
     res.extend(turn_right(-20.0 * 20.0, 0.0, 20.0, 20));
+
+    // big area
+    res.extend(turn_right(0.0, 300.0, 0.0, 50));
 
     // right
     res.extend(turn_right(0.0, 0.0, 20.0, 20));
@@ -619,8 +628,8 @@ fn setup_car(commands: &mut Commands, all_sprites: &AllSprite) {
             direction: Vec2::new(0., 1.),
             base_acc: 1.,
             top_speed: 40.,
-            steer_strength: 0.0015,
-            drift_strength: 0.05,
+            steer_strength: 0.0012,
+            drift_strength: 0.06,
             projectile_speed: 100.0,
             ammo: lv1_ammo(),
             start_time: 0.0,
@@ -669,7 +678,7 @@ fn setup_car(commands: &mut Commands, all_sprites: &AllSprite) {
 
 fn setup_goals(commands: &mut Commands, all_sprites: &AllSprite) {
     let mut transform = Transform::from_xyz(100., 10000., 2.0);
-    transform.scale = Vec3::new(1.0, 1.0, 1.0) * 0.5;
+    transform.scale = Vec3::new(1.0, 1.0, 1.0) * 0.2;
     // green circle for goal
     commands.spawn((
         SpriteBundle {
@@ -677,7 +686,7 @@ fn setup_goals(commands: &mut Commands, all_sprites: &AllSprite) {
             ..default()
         },
         Goal {
-            pos: Vec2::new(100., 10000.),
+            pos: Vec2::new(100., 100000.),
             radius: 200.,
         },
         PartOfLevel,
@@ -804,7 +813,6 @@ fn obstacle_draw(mut obstacles: Query<(&Obstacle, &mut Transform)>, car: Query<&
             * Vec3::new(0.1, 0.1, 0.1);
     }
 }
-
 
 fn collision_update_system(
     obstacles: Query<&Obstacle>,
@@ -1019,4 +1027,3 @@ fn draw_goals(mut goals: Query<(&Goal, &mut Transform)>, car: Query<&Car>) {
         transform.translation.y = goal.pos.y - car.pos.y;
     }
 }
-
