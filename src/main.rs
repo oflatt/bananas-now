@@ -580,7 +580,7 @@ fn detect_shoot_system(
 ) {
     let car = car.iter().next().unwrap();
     for keycode in [KeyCode::KeyK, KeyCode::KeyJ] {
-        if keyboard_input.pressed(keycode) {
+        if keyboard_input.just_pressed(keycode) {
             let mut transform = Transform::from_xyz(car.pos.x, car.pos.y, 1.0);
             transform.scale = Vec3::new(0.1, 0.1, 0.1);
             let angle = if keycode == KeyCode::KeyK {
