@@ -4,7 +4,11 @@ use bevy::{prelude::*, utils::hashbrown::HashMap};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, States)]
 enum AppState {
-    EndLevel { level: usize, did_win: bool },
+    EndLevel {
+        level: usize,
+        did_win: bool,
+        time: usize,
+    },
     StartLevel(usize),
     Game,
 }
@@ -16,6 +20,7 @@ fn main() {
         customer_draw,
         projectile_draw,
         draw_num_ammo,
+        draw_goals,
     );
     App::new()
         .insert_state(AppState::StartLevel(0))
@@ -30,6 +35,7 @@ fn main() {
                 detect_shoot_system,
                 projectile_update,
                 detect_projectile_hit,
+                check_in_goal,
             )
                 .run_if(in_state(AppState::Game)),
         )
@@ -67,6 +73,12 @@ struct KillerObstacle;
 #[derive(Component)]
 struct Obstacle {
     pos: Vec2,
+}
+
+#[derive(Component)]
+struct Goal {
+    pos: Vec2,
+    radius: f32,
 }
 
 #[derive(Component)]
@@ -276,7 +288,7 @@ fn get_texture(all_sprites: &AllSprite, key: &str) -> Handle<Image> {
     all_sprites.map.get(key).unwrap().clone()
 }
 
-fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
+fn setup_obstacles(commands: &mut Commands, asset_server: &Res<AssetServer>) {
     let mut transform = Transform::from_xyz(0., 20., -1.0);
     transform.scale = Vec3::new(0.1, 0.1, 0.1);
     // place one cone
@@ -355,6 +367,7 @@ fn initial_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         "smoke1.png",
         "smoke2.png",
         "banana.png",
+        "green-circle.png",
     ];
     let mut all_sprites = AllSprite {
         map: Default::default(),
@@ -475,7 +488,7 @@ fn setup_car(commands: &mut Commands, all_sprites: &AllSprite) {
         PartOfLevel,
     ));
 
-    let mut transform = Transform::from_xyz(500.0, 400.0, 4.);
+    let mut transform = Transform::from_xyz(500.0, 300.0, 4.);
     transform.scale = Vec3::new(0.05, 0.05, 0.05);
     // spawn banana UI element
     commands.spawn((
@@ -501,7 +514,7 @@ fn setup_car(commands: &mut Commands, all_sprites: &AllSprite) {
     .with_text_justify(JustifyText::Center)
     .with_style(Style {
         position_type: PositionType::Absolute,
-        top: Val::Percent(20.0),
+        top: Val::Px(5.0),
         right: Val::Px(5.0),
         ..default()
     });
@@ -516,10 +529,28 @@ fn setup_car(commands: &mut Commands, all_sprites: &AllSprite) {
     ));
 }
 
+fn setup_goals(commands: &mut Commands, all_sprites: &AllSprite) {
+    let mut transform = Transform::from_xyz(100., 10000., 2.0);
+    transform.scale = Vec3::new(1.0, 1.0, 1.0);
+    // green circle for goal
+    commands.spawn((
+        SpriteBundle {
+            texture: get_texture(all_sprites, "green-circle.png"),
+            ..default()
+        },
+        Goal {
+            pos: Vec2::new(100., 10000.),
+            radius: 100.,
+        },
+        PartOfLevel,
+    ));
+}
+
 fn setup_level(commands: &mut Commands, asset_server: Res<AssetServer>, all_sprites: &AllSprite) {
     setup_customers(commands, all_sprites);
     setup_car(commands, all_sprites);
-    setup_obstacles(commands, asset_server);
+    setup_obstacles(commands, &asset_server);
+    setup_goals(commands, all_sprites);
 
     commands.spawn((
         // Create a TextBundle that has a Text with a single section.
@@ -546,12 +577,11 @@ fn setup_level(commands: &mut Commands, asset_server: Res<AssetServer>, all_spri
 /// The sprite is animated by changing its translation depending on the time that has passed since
 /// the last frame.
 fn sprite_movement(
-    mut sprite_position: Query<(&mut Car, &mut Transform, &mut Handle<Image>)>,
+    mut sprite_position: Query<(&mut Car, &mut Handle<Image>)>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    asset_server: Res<AssetServer>,
     sprites: Query<&AllSprite>,
 ) {
-    for (mut car, mut transform, mut texture) in &mut sprite_position {
+    for (mut car, mut texture) in &mut sprite_position {
         // Finds the car
         if keyboard_input.pressed(KeyCode::KeyA) {
             // Steering speed depends on speed of the car.
@@ -631,6 +661,7 @@ fn collision_update_system(
     mut car: Query<&mut Car>,
     mut next_state: ResMut<NextState<AppState>>,
     mut comands: Commands,
+    time: Res<Time>,
 ) {
     let car = car.single_mut();
     let mut game_over = false;
@@ -645,6 +676,7 @@ fn collision_update_system(
         next_state.set(AppState::EndLevel {
             level: 0,
             did_win: false,
+            time: (time.elapsed_seconds() * 1000.0) as usize - (car.start_time * 1000.0) as usize,
         });
 
         setup_endlevel(&mut comands, false);
@@ -782,5 +814,36 @@ fn draw_num_ammo(mut ammo_ui_text: Query<(&AmmoUiText, &mut Text)>, car: Query<&
 
     for (ammo, mut text) in &mut ammo_ui_text {
         text.sections[0].value = format!("{}", car.ammo.get(&ammo.merch).unwrap_or(&0));
+    }
+}
+
+fn check_in_goal(
+    mut next_state: ResMut<NextState<AppState>>,
+    car: Query<&Car>,
+    goals: Query<&Goal>,
+    mut commands: Commands,
+    time: Res<Time>,
+) {
+    let car = car.iter().next().unwrap();
+    for goal in goals.iter() {
+        if car.pos.distance(goal.pos) < goal.radius {
+            next_state.set(AppState::EndLevel {
+                level: 0,
+                did_win: true,
+                time: (time.elapsed_seconds() * 1000.0) as usize
+                    - (car.start_time * 1000.0) as usize,
+            });
+
+            setup_endlevel(&mut commands, true);
+            break;
+        }
+    }
+}
+
+fn draw_goals(mut goals: Query<(&Goal, &mut Transform)>, car: Query<&Car>) {
+    let car = car.iter().next().unwrap();
+    for (goal, mut transform) in &mut goals {
+        transform.translation.x = goal.pos.x;
+        transform.translation.y = goal.pos.y - car.pos.y;
     }
 }
