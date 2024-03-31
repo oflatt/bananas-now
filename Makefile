@@ -34,7 +34,7 @@ build:
 	wasm-bindgen --no-typescript --target web \
 			--out-dir target/www \
 			--out-name "mygame" \
-			./target/wasm32-unknown-unknown/target/bevy-hello-world.wasm
+			./target/wasm32-unknown-unknown/release/bevy-hello-world.wasm
 	cp index.html ${WWW}/index.html
 	cp -r assets ${WWW}/assets
 
