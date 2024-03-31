@@ -287,7 +287,7 @@ fn setup_obstacles(commands: &mut Commands, asset_server: Res<AssetServer>) {
                             // }
 
     for (num, xpos, more_offset) in lv1_turns() {
-        let height_of_wall = 200.0;
+        let height_of_wall = 160.0;
         let mut transform = Transform::from_xyz(xpos, height_of_wall, -1.);
         transform.scale = Vec3::new(0.1, 0.1, 0.1);
         for _n in 0..num {
