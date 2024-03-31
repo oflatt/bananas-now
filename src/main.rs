@@ -397,10 +397,10 @@ fn setup_level(commands: &mut Commands, asset_server: Res<AssetServer>, all_spri
         },
         Car {
             pos: Vec2::new(100., 0.),
-            vel: Vec2::new(0., 0.),
+            vel: Vec2::new(0., 1.),
             direction: Vec2::new(0., 1.),
             base_acc: 1.,
-            top_speed: 40.,
+            top_speed: 1000.,
             steer_strength: 0.0015,
             drift_strength: 0.08,
             projectile_speed: 100.0,
@@ -456,26 +456,28 @@ fn sprite_movement(
             *texture = get_texture(sprites.get_single().unwrap(), "racecar_center.png");
         }
 
-        let mut car_velocity_update = car.direction * car.base_acc;
-        if car.vel.length() > 0.000001 {
-            car_velocity_update -=
-                car.vel.angle_between(car.direction).abs() * car.vel * car.drift_strength;
+        // let mut car_velocity_update = Vec2::new(0., 0.);
+        // if car.vel.length() > 0.000001 {
+        //     car_velocity_update -=
+        //         car.vel.angle_between(car.direction).abs() * car.vel * car.drift_strength;
+        // }
+
+        // car.vel += car_velocity_update;
+
+        // W key to boost the car (multiple velocity by some factor)
+        if keyboard_input.just_pressed(KeyCode::KeyW) {
+            car.vel = car.vel * Vec2::new(1.5, 1.5);
         }
 
-        car.vel += car_velocity_update;
+        // Add drag to the car (faster velocity = faster deceleration)
+        car.vel = car.vel * 0.99;
 
         // Limit the length of the vector to car.top_speed
-        if car.vel.length() > car.top_speed {
-            car.vel = car.vel.normalize() * car.top_speed;
-        }
-
+        // if car.vel.length() > car.top_speed {
+        //     car.vel = car.vel.normalize() * car.top_speed;
+        // }
         car.pos = car.pos + car.vel;
 
-        /*
-        TODO add accel changes.
-        vel += accel * time.delta_seconds(); // Check if this works in direction we need
-        pos += vel * time.delta_seconds();
-        */
     }
 }
 
@@ -498,6 +500,7 @@ fn text_update_system(time: Res<Time>, mut query: Query<&mut Text, With<TimerTex
         text.sections[0].value = format!("Time: {}", time.elapsed_seconds().floor());
     }
 }
+
 
 fn obstacle_draw(mut obstacles: Query<(&Obstacle, &mut Transform)>, car: Query<&Car>) {
     let car = car.iter().next().unwrap();
