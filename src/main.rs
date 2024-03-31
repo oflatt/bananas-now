@@ -4,6 +4,7 @@ use bevy::{prelude::*, utils::hashbrown::HashMap};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, States)]
 enum AppState {
+    EndLevel { level: usize, did_win: bool },
     StartLevel(usize),
     Game,
 }
@@ -34,8 +35,17 @@ fn main() {
         )
         .add_systems(Update, draw_level.run_if(in_state(AppState::Game)))
         .add_systems(Update, draw_level.run_if(in_state(AppState::StartLevel(0))))
-        .add_systems(Update, (check_start_level,))
+        .add_systems(Update, draw_level.run_if(run_if_in_end_level))
+        .add_systems(
+            Update,
+            (check_start_level,).run_if(in_state(AppState::StartLevel(0))),
+        )
+        .add_systems(Update, (check_end_to_start,).run_if(run_if_in_end_level))
         .run();
+}
+
+fn run_if_in_end_level(state: Res<State<AppState>>) -> bool {
+    matches!(state.get(), AppState::EndLevel { .. })
 }
 
 // All objects part of the level need this component so they can be despawned
@@ -44,6 +54,9 @@ struct PartOfLevel;
 
 #[derive(Component)]
 struct PartOfStart;
+
+#[derive(Component)]
+struct PartOfEndLevel;
 
 #[derive(Component)]
 struct TimerText;
@@ -67,6 +80,7 @@ struct Car {
     drift_strength: f32,
     projectile_speed: f32,
     ammo: HashMap<Merch, usize>,
+    start_time: f32,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -354,6 +368,37 @@ fn initial_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(all_sprites);
 }
 
+fn setup_endlevel(commands: &mut Commands, did_win: bool) {
+    let text = if did_win {
+        "You won! Press Space to play again"
+    } else {
+        "You lost! Press Space to play again"
+    };
+
+    // add a text component
+    let mut transform = Transform::from_xyz(0., 0., 3.);
+    transform.scale = Vec3::new(0.2, 0.2, 0.2);
+    commands.spawn((
+        // Create a TextBundle that has a Text with a single section.
+        TextBundle::from_section(
+            text,
+            TextStyle {
+                font_size: 50.0,
+                color: Color::GOLD,
+                ..Default::default()
+            },
+        )
+        .with_text_justify(JustifyText::Center)
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Percent(50.0),
+            left: Val::Percent(40.0),
+            ..default()
+        }),
+        PartOfEndLevel,
+    ));
+}
+
 fn setup_start(commands: &mut Commands, _all_sprites: &AllSprite) {
     // make text "press space to start"
     let mut transform = Transform::from_xyz(0., 0., 3.);
@@ -424,6 +469,7 @@ fn setup_car(commands: &mut Commands, all_sprites: &AllSprite) {
             drift_strength: 0.08,
             projectile_speed: 100.0,
             ammo: lv1_ammo(),
+            start_time: 0.0,
         },
         PartOfLevel,
     ));
@@ -558,9 +604,16 @@ fn sprite_draw(
     }
 }
 
-fn text_update_system(time: Res<Time>, mut query: Query<&mut Text, With<TimerText>>) {
+fn text_update_system(
+    time: Res<Time>,
+    mut query: Query<&mut Text, With<TimerText>>,
+    car: Query<&Car>,
+) {
     for mut text in &mut query {
-        text.sections[0].value = format!("Time: {}", time.elapsed_seconds().floor());
+        text.sections[0].value = format!(
+            "Time: {}",
+            ((time.elapsed_seconds() - car.single().start_time) * 100.0).floor() / 100.0
+        );
     }
 }
 
@@ -576,10 +629,7 @@ fn collision_update_system(
     obstacles: Query<&Obstacle>,
     mut car: Query<&mut Car>,
     mut next_state: ResMut<NextState<AppState>>,
-    to_delete: Query<Entity, With<PartOfLevel>>,
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    sprites: Query<&AllSprite>,
+    mut comands: Commands,
 ) {
     let car = car.single_mut();
     let mut game_over = false;
@@ -591,13 +641,42 @@ fn collision_update_system(
     }
 
     if game_over {
-        // delete things part of the level
+        next_state.set(AppState::EndLevel {
+            level: 0,
+            did_win: false,
+        });
+
+        setup_endlevel(&mut comands, false);
+    }
+}
+
+// ignore too many arguments
+#[allow(clippy::too_many_arguments)]
+fn check_end_to_start(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut next_state: ResMut<NextState<AppState>>,
+    to_delete: Query<Entity, With<PartOfEndLevel>>,
+    to_delete2: Query<Entity, With<PartOfLevel>>,
+    mut commands: Commands,
+    mut car: Query<&mut Car>,
+    asset_server: Res<AssetServer>,
+    sprites: Query<&AllSprite>,
+) {
+    if keyboard_input.just_pressed(KeyCode::Space) {
         for entity in to_delete.iter() {
+            commands.entity(entity).despawn();
+        }
+        next_state.set(AppState::StartLevel(0));
+        // set car start time
+        let mut car = car.single_mut();
+        car.start_time = 0.0;
+
+        // delete things part of the level
+        for entity in to_delete.iter().chain(to_delete2.iter()) {
             commands.entity(entity).despawn();
         }
         setup_start(&mut commands, sprites.get_single().unwrap());
         setup_level(&mut commands, asset_server, sprites.get_single().unwrap());
-        next_state.set(AppState::StartLevel(0));
     }
 }
 
@@ -606,12 +685,17 @@ fn check_start_level(
     mut next_state: ResMut<NextState<AppState>>,
     to_delete: Query<Entity, With<PartOfStart>>,
     mut commands: Commands,
+    mut car: Query<&mut Car>,
+    time: Res<Time>,
 ) {
-    if keyboard_input.pressed(KeyCode::Space) {
+    if keyboard_input.just_pressed(KeyCode::Space) {
         for entity in to_delete.iter() {
             commands.entity(entity).despawn();
         }
         next_state.set(AppState::Game);
+        // set car start time
+        let mut car = car.single_mut();
+        car.start_time = time.elapsed_seconds();
     }
 }
 
@@ -645,7 +729,8 @@ fn detect_shoot_system(
 ) {
     let mut car = car.single_mut();
     for keycode in [KeyCode::KeyK, KeyCode::KeyJ] {
-        if car.ammo.get(&Merch::Banana).unwrap_or(&0) != &0 && keyboard_input.just_pressed(keycode) {
+        if car.ammo.get(&Merch::Banana).unwrap_or(&0) != &0 && keyboard_input.just_pressed(keycode)
+        {
             let mut transform = Transform::from_xyz(car.pos.x, car.pos.y, 1.0);
             transform.scale = Vec3::new(0.1, 0.1, 0.1);
             let angle = if keycode == KeyCode::KeyK {
@@ -678,8 +763,8 @@ fn detect_shoot_system(
 
 fn detect_projectile_hit(
     mut commands: Commands,
-    mut projectiles: Query<(Entity, &Projectile)>,
-    mut customers: Query<(Entity, &Customer)>,
+    projectiles: Query<(Entity, &Projectile)>,
+    customers: Query<(Entity, &Customer)>,
 ) {
     for (projectile_entity, projectile) in &mut projectiles.iter() {
         for (customer_entity, customer) in &mut customers.iter() {
@@ -691,11 +776,7 @@ fn detect_projectile_hit(
     }
 }
 
-fn draw_num_ammo(
-    ammo_ui: Query<(&AmmoUi, &mut Transform)>,
-    mut ammo_ui_text: Query<(&AmmoUiText, &mut Text)>,
-    car: Query<&Car>,
-) {
+fn draw_num_ammo(mut ammo_ui_text: Query<(&AmmoUiText, &mut Text)>, car: Query<&Car>) {
     let car = car.iter().next().unwrap();
 
     for (ammo, mut text) in &mut ammo_ui_text {
