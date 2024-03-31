@@ -288,6 +288,16 @@ fn get_texture(all_sprites: &AllSprite, key: &str) -> Handle<Image> {
     all_sprites.map.get(key).unwrap().clone()
 }
 
+fn world_to_screen_x(x: f32, z: f32) -> f32 {
+    x / (z * f32::sin(0.341) - 400.0 * -f32::cos(0.341)) * (400.0)
+}
+fn world_to_screen_y(x: f32, z: f32) -> f32 {
+    ((z * f32::cos(0.341) - 400.0 * f32::sin(0.341)) / (z * f32::sin(0.341) - 400.0 * -f32::cos(0.341))) * (200.0 / 1.428)
+}
+fn world_to_screen_scale(x: f32, z: f32) -> f32 {
+    400.0 / (z * f32::sin(0.341) - 400.0 * -f32::cos(0.341))
+}
+
 fn setup_obstacles(commands: &mut Commands, asset_server: &Res<AssetServer>) {
     let mut transform = Transform::from_xyz(0., 20., -1.0);
     transform.scale = Vec3::new(0.1, 0.1, 0.1);
@@ -627,9 +637,12 @@ fn sprite_draw(
 ) {
     for (mut car, mut transform, mut texture) in &mut sprite_position {
         // Update sprite
-        transform.translation.y = -200.0;
-        transform.translation.x = car.pos.x;
-
+        // transform.translation.y = -200.0;
+        // transform.translation.x = car.pos.x;
+        transform.translation.x = world_to_screen_x(car.pos.x, 0.0);
+        transform.translation.y = world_to_screen_y(car.pos.x, 0.0);
+        transform.translation.z = world_to_screen_scale(car.pos.x, 0.0);
+        transform.scale = world_to_screen_scale(car.pos.x, 0.0) * Vec3::new(0.2, 0.2, 0.2);
         transform.rotation =
             Quat::from_rotation_z(car.direction.to_angle() - std::f32::consts::FRAC_PI_2);
     }
@@ -651,8 +664,12 @@ fn text_update_system(
 fn obstacle_draw(mut obstacles: Query<(&Obstacle, &mut Transform)>, car: Query<&Car>) {
     let car = car.iter().next().unwrap();
     for (obstacle, mut transform) in &mut obstacles {
-        transform.translation.x = obstacle.pos.x;
-        transform.translation.y = obstacle.pos.y - car.pos.y;
+        // transform.translation.x = obstacle.pos.x;
+        // transform.translation.y = obstacle.pos.y - car.pos.y;
+        transform.translation.x = world_to_screen_x(obstacle.pos.x, obstacle.pos.y - car.pos.y);
+        transform.translation.y = world_to_screen_y(obstacle.pos.x, obstacle.pos.y - car.pos.y);
+        transform.translation.z = world_to_screen_scale(obstacle.pos.x, obstacle.pos.y - car.pos.y);
+        transform.scale = world_to_screen_scale(obstacle.pos.x, obstacle.pos.y - car.pos.y) * Vec3::new(0.1, 0.1, 0.1);
     }
 }
 
