@@ -30,12 +30,13 @@ debug:
 
 build:
 	cargo build --release --target wasm32-unknown-unknown
+	rm -rf ${WWW} || true
 	wasm-bindgen --no-typescript --target web \
-			--out-dir ./out/ \
+			--out-dir target/www \
 			--out-name "mygame" \
-			./target/wasm32-unknown-unknown/release/mygame.wasm
-	cp index.html out/index.html
-	cp -r assets out/assets
+			./target/wasm32-unknown-unknown/target/bevy-hello-world.wasm
+	cp index.html ${WWW}/index.html
+	cp -r assets ${WWW}/assets
 
 install:
 	rustup target install wasm32-unknown-unknown
