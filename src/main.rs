@@ -1,8 +1,11 @@
 //! Renders a 2D scene containing a single, moving sprite.
 
-
 use bevy::{
-    app::ScheduleRunnerPlugin, audio::Volume, diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin}, prelude::*, utils::hashbrown::HashMap
+    app::ScheduleRunnerPlugin,
+    audio::Volume,
+    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
+    prelude::*,
+    utils::hashbrown::HashMap,
 };
 
 const HEIGHT_OF_WALL: f32 = 160.0;
@@ -134,124 +137,58 @@ struct AllSprite {
     map: HashMap<String, Handle<Image>>,
 }
 
-fn lv2_turns() -> Vec<(usize, f32)> {
-    // (how many blocks to render, x position of those blocks)
-    vec![
-        (10, 0.0),
-        (10, 100.0),
-        (10, 200.0),
-        (10, 300.0),
-        (10, 300.0),
-        (10, 200.0),
-        (10, 100.0),
-        (10, 0.0),
-        (5, 0.0),
-        (5, -50.0),
-        (5, -100.0),
-        (5, -150.0),
-        (5, -200.0),
-        (5, -250.0),
-        (5, -300.0),
-        (5, -250.0),
-        (5, -200.0),
-        (5, -150.0),
-        (5, -100.0),
-        (5, -50.0),
-        (10, 0.0),
-        (10, 50.0),
-        (10, 100.0),
-        (10, 150.0),
-        (10, 200.0),
-        (10, 150.0),
-        (10, 100.0),
-        (10, 50.0),
-        (5, 0.0),
-        (5, -50.0),
-        (10, -100.0),
-        (10, -150.0),
-        (10, -200.0),
-        (10, -250.0),
-        (10, -300.0),
-        (10, -250.0),
-        (10, -200.0),
-        (10, -150.0),
-        (5, -100.0),
-        (5, -50.0),
-        (10, 0.0),
-        (10, 50.0),
-        (10, 100.0),
-        (10, 150.0),
-        (10, 200.0),
-        (10, 150.0),
-        (10, 100.0),
-        (10, 50.0),
-        (5, 0.0),
-        (5, -50.0),
-        (10, -100.0),
-        (10, -150.0),
-        (10, -200.0),
-        (10, -250.0),
-        (10, -300.0),
-        (10, -250.0),
-        (10, -200.0),
-        (10, -150.0),
-        (5, -100.0),
-        (5, -50.0),
-        (10, 0.0),
-        (10, 50.0),
-        (10, 100.0),
-        (10, 150.0),
-        (10, 200.0),
-        (10, 150.0),
-        (10, 100.0),
-    ]
-}
-
 fn lv1_ammo() -> HashMap<Merch, usize> {
     vec![(Merch::Banana, 10)].into_iter().collect()
 }
 
-fn turn_right(
-    startpos: f32,
-    width: f32,
-    sharpness: f32,
-    duration: usize,
-    customers: Vec<(f32, f32)>,
-) -> Vec<(usize, f32, f32, Vec<(f32, f32)>)> {
-    let mut res = vec![];
-    let mut xpos = startpos;
-    for i in 0..duration {
-        res.push((1, xpos, width, if i == 0 { customers.clone() } else { vec![] }));
-        xpos += sharpness;
-    }
-    res
+enum Placement {
+    Customer { xpos: f32 },
+    Goal { xpos: f32 },
 }
 
-fn lv1_turns() -> Vec<(usize, f32, f32, Vec<(f32, f32)>)> {
+fn lv1_turns() -> Vec<(usize, f32, f32, Vec<Placement>)> {
     // (how many blocks to render, x position of those blocks, size of gap, customers (x, y))
+    let base_width = 400.0;
     let mut res = vec![
-        (10, 0.0, 0.0, vec![]),
-        (10, 0.0, 10.0, vec![]),
-        (10, 0.0, 20.0, vec![]),
-        (10, 0.0, 0.0, vec![]),
+        (10, 0.0, base_width, vec![]),
+        (10, 0.0, base_width, vec![]),
+        (10, 0.0, base_width, vec![]),
+        (10, 0.0, base_width, vec![]),
     ];
     let sharpness_easy = 30.0;
+    let base_width = 400.0;
+    // target
+    res.push((3, 0.0, base_width + 300.0, vec![]));
+    res.push((2, 0.0, base_width + 300.0, vec![Placement::Customer { xpos: -500.0 }]));
     // right
-    res.extend(turn_right(0.0, 0.0, sharpness_easy, 20, vec![]));
+    res.push((20, sharpness_easy, base_width, vec![]));
     // strait
-    res.extend(turn_right(20.0 * sharpness_easy, 0.0, 0.0, 20, vec![]));
+    res.push((20, 0.0, base_width, vec![]));
+    // target
+    res.push((3, 0.0, base_width + 300.0, vec![]));
+    res.push((2, 0.0*sharpness_easy, base_width + 300.0, vec![Placement::Customer { xpos: 500.0 }]));
     // left
-    res.extend(turn_right(20.0 * sharpness_easy, 0.0, -sharpness_easy, 40, vec![]));
+    res.push((40, -sharpness_easy, base_width, vec![]));
     //back right
-    res.extend(turn_right(-20.0 * sharpness_easy, 0.0, sharpness_easy, 20, vec![]));
+    res.push((20, sharpness_easy, base_width, vec![]));
 
     // big area
-    res.extend(turn_right(0.0, 300.0, 0.0, 50, vec![]));
+    res.push((5, 0.0, 1000.0, vec![]));
+    res.push((0, 0.0, 0.0, vec![Placement::Customer { xpos: -800.0 }]));
+    res.push((0, 0.0, 0.0, vec![Placement::Customer { xpos: 800.0 }]));
+    res.push((10, 0.0, 1000.0, vec![]));
+    res.push((0, 0.0, 0.0, vec![Placement::Customer { xpos: -800.0 }]));
+    res.push((0, 0.0, 0.0, vec![Placement::Customer { xpos: 800.0 }]));
+    res.push((5, 0.0, 1000.0, vec![]));
+
+    res.push((50, 0.0, 700.0, vec![]));
 
     // right
-    res.extend(turn_right(0.0, 0.0, sharpness_easy, 20, vec![]));
+    res.push((20, sharpness_easy, base_width, vec![]));
+    // go back to middle
+    res.push((0, -sharpness_easy*20.0, base_width, vec![]));
     // mismatched left
-    res.extend(turn_right(0.0, 0.0, -sharpness_easy, 20, vec![]));
+    res.push((20, -sharpness_easy, base_width, vec![]));
     res
 }
 
@@ -291,57 +228,60 @@ fn setup_obstacles(commands: &mut Commands, all_sprites: &AllSprite) {
     ));*/
 
     let mut ypos = -100.0;
-    let left_side = -400.0; // Offset from the center coord of cones
-                            // place level obstacles
-                            // for (kill_ypos, kill_xpos) in lv1_killcones() {
-                            //     let mut transform = Transform::from_xyz(kill_xpos, kill_ypos, -1.0);
-                            //     transform.scale = Vec3::new(0.2, 0.2, 0.2);
-                            //     commands.spawn((
-                            //         SpriteBundle {
-                            //             texture: asset_server.load("cone.png"),
-                            //             transform,
-                            //             ..default()
-                            //         },
-                            //         Obstacle {
-                            //             pos: Vec2::new(kill_xpos, kill_ypos),
-                            //         },
-                            //         KillerObstacle,
-                            //     ));
-                            // }
+    let mut current_xpos = 0.0;
 
     for (num, xpos, more_offset, customers) in lv1_turns() {
-        for (customerx, customery) in customers {
-            let customer = Customer {
-                pos: Vec2::new(xpos + customerx, customery + ypos),
-                wants: Merch::Banana,
-            };
-            let mut transform = Transform::from_xyz(customer.pos.x, customer.pos.y, 1.0);
-            transform.scale = Vec3::new(1.0, 1.0, 1.0) * 0.15;
-            commands.spawn((
-                SpriteBundle {
-                    texture: get_texture(all_sprites, "banana-car.png"),
-                    transform,
-                    ..default()
-                },
-                customer.clone(),
-                PartOfLevel,
-            ));
-
-            // spawn a bubble above the car
-            let mut transform = Transform::from_xyz(customer.pos.x, customer.pos.y + 100., 3.0);
-            transform.scale = Vec3::new(1.0, 1.0, 1.0) * 0.15;
-            let bubble_pos = Vec2::new(customer.pos.x, customer.pos.y + 100.);
-            commands.spawn((
-                SpriteBundle {
-                    texture: get_texture(all_sprites, "banana-speech.png"),
-                    transform,
-                    ..default()
-                },
-                CustomerBubble { pos: bubble_pos },
-                PartOfLevel,
-            ));
+        for placement in customers {
+            match placement {
+                Placement::Customer { xpos: customerx } => {
+                    let customer = Customer {
+                        pos: Vec2::new(current_xpos + customerx,  ypos),
+                        wants: Merch::Banana,
+                    };
+                    let mut transform = Transform::from_xyz(customer.pos.x, customer.pos.y, 1.0);
+                    transform.scale = Vec3::new(1.0, 1.0, 1.0) * 0.15;
+                    commands.spawn((
+                        SpriteBundle {
+                            texture: get_texture(all_sprites, "banana-car.png"),
+                            transform,
+                            ..default()
+                        },
+                        customer.clone(),
+                        PartOfLevel,
+                    ));
+        
+                    // spawn a bubble above the car
+                    let mut transform = Transform::from_xyz(customer.pos.x, customer.pos.y + 100., 3.0);
+                    transform.scale = Vec3::new(1.0, 1.0, 1.0) * 0.15;
+                    let bubble_pos = Vec2::new(customer.pos.x, customer.pos.y + 100.);
+                    commands.spawn((
+                        SpriteBundle {
+                            texture: get_texture(all_sprites, "banana-speech.png"),
+                            transform,
+                            ..default()
+                        },
+                        CustomerBubble { pos: bubble_pos },
+                        PartOfLevel,
+                    ));
+                }
+                Placement::Goal { xpos: goal_xpos } => {
+                    let mut transform = Transform::from_xyz(100., 10000., 2.0);
+                    transform.scale = Vec3::new(1.0, 1.0, 1.0) * 0.2;
+                    commands.spawn((
+                        SpriteBundle {
+                            texture: get_texture(all_sprites, "finish.png"),
+                            ..default()
+                        },
+                        Goal {
+                            pos: Vec2::new(current_xpos + goal_xpos, ypos),
+                            radius: 200.,
+                        },
+                        PartOfLevel,
+                    ));
+                }
+            }
+            
         }
-
 
         let mut transform = Transform::from_xyz(xpos, HEIGHT_OF_WALL, -1.);
         transform.scale = Vec3::new(0.1, 0.1, 0.1);
@@ -353,7 +293,7 @@ fn setup_obstacles(commands: &mut Commands, all_sprites: &AllSprite) {
                     ..default()
                 },
                 Obstacle {
-                    pos: Vec2::new(xpos + left_side - more_offset, ypos),
+                    pos: Vec2::new(current_xpos + xpos - more_offset, ypos),
                 },
                 PartOfLevel,
             ));
@@ -364,11 +304,12 @@ fn setup_obstacles(commands: &mut Commands, all_sprites: &AllSprite) {
                     ..default()
                 },
                 Obstacle {
-                    pos: Vec2::new(xpos - left_side + more_offset, ypos),
+                    pos: Vec2::new(current_xpos + xpos + more_offset, ypos),
                 },
                 PartOfLevel,
             ));
 
+            current_xpos += xpos;
             ypos += HEIGHT_OF_WALL;
         }
     }
@@ -580,7 +521,6 @@ fn setup_start(commands: &mut Commands, _all_sprites: &AllSprite) {
     ));
 }
 
-
 #[derive(Component)]
 struct AmmoUi {}
 
@@ -652,27 +592,10 @@ fn setup_car(commands: &mut Commands, all_sprites: &AllSprite) {
     ));
 }
 
-fn setup_goals(commands: &mut Commands, all_sprites: &AllSprite) {
-    let mut transform = Transform::from_xyz(100., 10000., 2.0);
-    transform.scale = Vec3::new(1.0, 1.0, 1.0) * 0.2;
-    // green circle for goal
-    commands.spawn((
-        SpriteBundle {
-            texture: get_texture(all_sprites, "finish.png"),
-            ..default()
-        },
-        Goal {
-            pos: Vec2::new(100., 100000.),
-            radius: 200.,
-        },
-        PartOfLevel,
-    ));
-}
 
 fn setup_level(commands: &mut Commands, all_sprites: &AllSprite) {
     setup_car(commands, all_sprites);
     setup_obstacles(commands, &all_sprites);
-    setup_goals(commands, all_sprites);
 
     commands.spawn((
         // Create a TextBundle that has a Text with a single section.
@@ -961,7 +884,7 @@ fn detect_projectile_hit(
 ) {
     for (projectile_entity, projectile) in &mut projectiles.iter() {
         for (customer_entity, customer) in &mut customers.iter() {
-            if projectile.pos.distance(customer.pos) < 100. && projectile.merch == customer.wants {
+            if projectile.pos.distance(customer.pos) < 200. && projectile.merch == customer.wants {
                 commands.entity(projectile_entity).despawn();
                 commands.entity(customer_entity).despawn();
             }
@@ -1011,7 +934,13 @@ fn check_in_goal(
 fn draw_goals(mut goals: Query<(&Goal, &mut Transform)>, car: Query<&Car>) {
     let car = car.iter().next().unwrap();
     for (goal, mut transform) in &mut goals {
-        set_transformation(&mut transform, goal.pos.x, goal.pos.y - car.pos.y, 1.0, car.vel.y);
+        set_transformation(
+            &mut transform,
+            goal.pos.x,
+            goal.pos.y - car.pos.y,
+            1.0,
+            car.vel.y,
+        );
     }
 }
 
