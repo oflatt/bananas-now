@@ -784,8 +784,8 @@ fn collision_update_system(
     for obstacle in &obstacles {
         if car.pos.distance(obstacle.pos) < 75. {
             // Game over
-            // TODO bounce
-            //game_over = true;
+            // TODO bounce, but game over in hardcore mode
+            game_over = true;
         }
     }
 
