@@ -1,6 +1,9 @@
 //! Renders a 2D scene containing a single, moving sprite.
 
+use std::cmp::{max, min};
+
 use bevy::{
+    audio::Volume,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
     utils::hashbrown::HashMap,
@@ -21,8 +24,12 @@ enum AppState {
 
 fn main() {
     let draw_level = (
-        draw_objects,
+        sprite_draw,
+        obstacle_draw,
+        customer_draw,
+        projectile_draw,
         draw_num_ammo,
+        draw_goals,
         fps_text_update_system,
     );
     App::new()
@@ -71,17 +78,13 @@ struct PartOfEndLevel;
 #[derive(Component)]
 struct TimerText;
 
-#[derive(Component, Clone)]
-struct GameObject {
-    pos: Vec2,
-    draw_scale: f32,
-}
-
 #[derive(Component)]
 struct KillerObstacle;
 
 #[derive(Component)]
-struct Obstacle;
+struct Obstacle {
+    pos: Vec2,
+}
 
 /// Marker to find the text entity so we can update it
 #[derive(Component)]
@@ -89,11 +92,13 @@ struct FpsText;
 
 #[derive(Component)]
 struct Goal {
+    pos: Vec2,
     radius: f32,
 }
 
 #[derive(Component)]
 struct Car {
+    pos: Vec2,
     vel: Vec2, // Velocity is calculated
     direction: Vec2,
     base_acc: f32,
@@ -112,11 +117,18 @@ enum Merch {
 
 #[derive(Component, Clone)]
 struct Customer {
+    pos: Vec2,
     wants: Merch,
 }
 
 #[derive(Component)]
+struct CustomerBubble {
+    pos: Vec2,
+}
+
+#[derive(Component)]
 struct Projectile {
+    pos: Vec2,
     vel: Vec2,
     merch: Merch,
 }
@@ -203,29 +215,20 @@ fn lv1_ammo() -> HashMap<Merch, usize> {
     vec![(Merch::Banana, 10)].into_iter().collect()
 }
 
-fn lv1_customers() -> Vec<(GameObject, Customer)> {
+fn lv1_customers() -> Vec<Customer> {
     vec![
-        (
-            GameObject {
-                pos: Vec2::new(400., 500.),
-                draw_scale: 0.15,
-            },
-            Customer { wants: Merch::Banana },
-        ),
-        (
-            GameObject {
-                pos: Vec2::new(-400., 100000.),
-                draw_scale: 0.15,
-            },
-            Customer { wants: Merch::Banana },
-        ),
-        (
-            GameObject {
-                pos: Vec2::new(700., 200000.),
-                draw_scale: 0.15,
-            },
-            Customer { wants: Merch::Banana },
-        ),
+        Customer {
+            pos: Vec2::new(400., 500.),
+            wants: Merch::Banana,
+        },
+        Customer {
+            pos: Vec2::new(-400., 100000.),
+            wants: Merch::Banana,
+        },
+        Customer {
+            pos: Vec2::new(700., 200000.),
+            wants: Merch::Banana,
+        },
     ]
 }
 
@@ -406,30 +409,26 @@ fn setup_obstacles(commands: &mut Commands, asset_server: &Res<AssetServer>) {
         transform.scale = Vec3::new(0.1, 0.1, 0.1);
         for _n in 0..num {
             commands.spawn((
-                PartOfLevel,
-                GameObject {
-                    pos: Vec2::new(xpos + left_side - more_offset, ypos),
-                    draw_scale: 0.1,
-                },
                 SpriteBundle {
                     texture: asset_server.load("static-wall.png"),
                     transform,
                     ..default()
                 },
-                Obstacle,
+                Obstacle {
+                    pos: Vec2::new(xpos + left_side - more_offset, ypos),
+                },
+                PartOfLevel,
             ));
             commands.spawn((
-                PartOfLevel,
-                GameObject {
-                    pos: Vec2::new(xpos - left_side + more_offset, ypos),
-                    draw_scale: 0.1,
-                },
                 SpriteBundle {
                     texture: asset_server.load("static-wall.png"),
                     transform,
                     ..default()
                 },
-                Obstacle,
+                Obstacle {
+                    pos: Vec2::new(xpos - left_side + more_offset, ypos),
+                },
+                PartOfLevel,
             ));
 
             ypos += HEIGHT_OF_WALL;
@@ -643,18 +642,31 @@ fn setup_start(commands: &mut Commands, _all_sprites: &AllSprite) {
 }
 
 fn setup_customers(commands: &mut Commands, all_sprites: &AllSprite) {
-    for (entity, customer) in lv1_customers() {
-        let mut transform = Transform::from_xyz(entity.pos.x, entity.pos.y, 1.0);
+    for customer in lv1_customers() {
+        let mut transform = Transform::from_xyz(customer.pos.x, customer.pos.y, 1.0);
         transform.scale = Vec3::new(1.0, 1.0, 1.0) * 0.15;
         commands.spawn((
-            PartOfLevel,
-            entity.clone(),
             SpriteBundle {
                 texture: get_texture(all_sprites, "banana-car.png"),
                 transform,
                 ..default()
             },
             customer.clone(),
+            PartOfLevel,
+        ));
+
+        // spawn a bubble above the car
+        let mut transform = Transform::from_xyz(customer.pos.x, customer.pos.y + 100., 3.0);
+        transform.scale = Vec3::new(1.0, 1.0, 1.0) * 0.15;
+        let bubble_pos = Vec2::new(customer.pos.x, customer.pos.y + 100.);
+        commands.spawn((
+            SpriteBundle {
+                texture: get_texture(all_sprites, "banana-speech.png"),
+                transform,
+                ..default()
+            },
+            CustomerBubble { pos: bubble_pos },
+            PartOfLevel,
         ));
     }
 }
@@ -671,17 +683,13 @@ fn setup_car(commands: &mut Commands, all_sprites: &AllSprite) {
     let mut transform = Transform::from_xyz(0., 0., 0.);
     transform.scale = Vec3::new(0.2, 0.2, 0.2);
     commands.spawn((
-        PartOfLevel,
-        GameObject {
-            pos: Vec2::new(100., 0.),
-            draw_scale: 0.2,
-        },
         SpriteBundle {
             texture: get_texture(all_sprites, "racecar_center.png"),
             transform,
             ..default()
         },
         Car {
+            pos: Vec2::new(100., 0.),
             vel: Vec2::new(0., 0.),
             direction: Vec2::new(0., 1.),
             base_acc: 1.,
@@ -692,6 +700,7 @@ fn setup_car(commands: &mut Commands, all_sprites: &AllSprite) {
             ammo: lv1_ammo(),
             start_time: 0.0,
         },
+        PartOfLevel,
     ));
 
     let mut transform = Transform::from_xyz(500.0, 300.0, 4.);
@@ -738,18 +747,15 @@ fn setup_goals(commands: &mut Commands, all_sprites: &AllSprite) {
     transform.scale = Vec3::new(1.0, 1.0, 1.0) * 0.2;
     // green circle for goal
     commands.spawn((
-        PartOfLevel,
-        GameObject {
-            pos: Vec2::new(100., 100000.),
-            draw_scale: 0.2,
-        },
         SpriteBundle {
             texture: get_texture(all_sprites, "finish.png"),
             ..default()
         },
         Goal {
-            radius: 400.,
+            pos: Vec2::new(100., 100000.),
+            radius: 200.,
         },
+        PartOfLevel,
     ));
 }
 
@@ -784,11 +790,11 @@ fn setup_level(commands: &mut Commands, asset_server: Res<AssetServer>, all_spri
 /// The sprite is animated by changing its translation depending on the time that has passed since
 /// the last frame.
 fn sprite_movement(
-    mut sprite_position: Query<(&mut GameObject, &mut Car, &mut Handle<Image>)>,
+    mut sprite_position: Query<(&mut Car, &mut Handle<Image>)>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     sprites: Query<&AllSprite>,
 ) {
-    for (mut car_object, mut car, mut texture) in &mut sprite_position {
+    for (mut car, mut texture) in &mut sprite_position {
         // Finds the car
         if keyboard_input.pressed(KeyCode::KeyA) {
             // Steering speed depends on speed of the car.
@@ -829,7 +835,7 @@ fn sprite_movement(
             car.vel = car.vel.normalize() * car.top_speed;
         }
 
-        car_object.pos = car_object.pos + car.vel;
+        car.pos = car.pos + car.vel;
 
         /*
         TODO add accel changes.
@@ -839,18 +845,14 @@ fn sprite_movement(
     }
 }
 
-fn draw_objects(
-    mut entity: Query<(&GameObject, &mut Transform), Without<Car>>,
-    mut car_entity: Query<(&GameObject, &mut Transform, &Car)>,
+fn sprite_draw(
+    mut sprite_position: Query<(&mut Car, &mut Transform, &mut Handle<Image>)>,
+    sprites: Query<&AllSprite>,
 ) {
-    if let Ok((car_object, mut car_transform, car)) = car_entity.get_single_mut() {
-        // Draw other objects
-        for (object, mut transform) in &mut entity {
-            set_transformation(&mut transform, object.pos.x, object.pos.y - car_object.pos.y, object.draw_scale, car.vel.y);
-        }
-        // Draw car
-        set_transformation(&mut car_transform, car_object.pos.x, 0.0, car_object.draw_scale, car.vel.y);
-        car_transform.rotation =
+    for (mut car, mut transform, mut texture) in &mut sprite_position {
+        // Update sprite
+        set_transformation(&mut transform, car.pos.x, 0.0, 0.2, car.vel.y);
+        transform.rotation =
             Quat::from_rotation_z(car.direction.to_angle() - std::f32::consts::FRAC_PI_2);
     }
 }
@@ -868,31 +870,44 @@ fn text_update_system(
     }
 }
 
+fn obstacle_draw(mut obstacles: Query<(&Obstacle, &mut Transform)>, car: Query<&Car>) {
+    let car = car.iter().next().unwrap();
+    for (obstacle, mut transform) in &mut obstacles {
+        set_transformation(
+            &mut transform,
+            obstacle.pos.x,
+            obstacle.pos.y - car.pos.y,
+            0.1,
+            car.vel.y,
+        );
+    }
+}
+
 fn collision_update_system(
-    obstacles: Query<(&GameObject, &Obstacle)>,
-    car_entity: Query<(&GameObject, &Car)>,
+    obstacles: Query<&Obstacle>,
+    mut car: Query<&mut Car>,
     mut next_state: ResMut<NextState<AppState>>,
     mut comands: Commands,
     time: Res<Time>,
+    audio: Query<&AudioSink>,
 ) {
-    if let Ok((car_object, car)) = car_entity.get_single() {
-        let mut game_over = false;
-        for (obstacle_object, _) in &obstacles {
-            if car_object.pos.distance(obstacle_object.pos) < 75. {
-                // Game over
-                game_over = true;
-            }
+    let mut car = car.single_mut();
+    let mut game_over = false;
+    for obstacle in &obstacles {
+        if car.pos.distance(obstacle.pos) < 75. {
+            // Game over
+            game_over = true;
         }
+    }
 
-        if game_over {
-            next_state.set(AppState::EndLevel {
-                level: 0,
-                did_win: false,
-                time: (time.elapsed_seconds() * 1000.0) as usize - (car.start_time * 1000.0) as usize,
-            });
-    
-            setup_endlevel(&mut comands, false);
-        }
+    if game_over {
+        next_state.set(AppState::EndLevel {
+            level: 0,
+            did_win: false,
+            time: (time.elapsed_seconds() * 1000.0) as usize - (car.start_time * 1000.0) as usize,
+        });
+
+        setup_endlevel(&mut comands, false);
     }
 }
 
@@ -924,9 +939,7 @@ fn check_end_to_start(
         }
         setup_start(&mut commands, sprites.get_single().unwrap());
         setup_level(&mut commands, asset_server, sprites.get_single().unwrap());
-        if let Ok(audio_sink) = audio.get_single() {
-            audio_sink.pause();
-        }
+        audio.get_single().unwrap().pause();
     }
 }
 
@@ -951,9 +964,43 @@ fn check_start_level(
     }
 }
 
-fn projectile_update(mut projectiles: Query<(&mut GameObject, &Projectile)>) {
-    for (mut projectile_object, projectile) in &mut projectiles {
-        projectile_object.pos = projectile_object.pos + projectile.vel;
+fn customer_draw(
+    mut customers: Query<(&Customer, &mut Transform)>,
+    car: Query<&Car>,
+    mut bubbles: Query<&mut CustomerBubble>,
+) {
+    let car = car.iter().next().unwrap();
+    for (customer, mut transform) in &mut customers {
+        set_transformation(
+            &mut transform,
+            customer.pos.x,
+            customer.pos.y - car.pos.y,
+            0.1,
+            car.vel.y,
+        );
+    }
+
+    // for mut bubble in &mut bubbles {
+    //     bubble.pos.y = bubble.pos.y - car.pos.y;
+    // }
+}
+
+fn projectile_update(mut projectiles: Query<&mut Projectile>) {
+    for mut projectile in &mut projectiles {
+        projectile.pos = projectile.pos + projectile.vel;
+    }
+}
+
+fn projectile_draw(mut projectiles: Query<(&Projectile, &mut Transform)>, car: Query<&Car>) {
+    let car = car.iter().next().unwrap();
+    for (projectile, mut transform) in &mut projectiles {
+        set_transformation(
+            &mut transform,
+            projectile.pos.x,
+            projectile.pos.y - car.pos.y,
+            0.05,
+            car.vel.y,
+        );
     }
 }
 
@@ -961,13 +1008,13 @@ fn detect_shoot_system(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut commands: Commands,
     all_sprites: Query<&AllSprite>,
-    mut car_entity: Query<(&GameObject, &mut Car)>,
+    mut car: Query<&mut Car>,
 ) {
-    let (car_object, mut car) = car_entity.single_mut();
+    let mut car = car.single_mut();
     for keycode in [KeyCode::KeyK, KeyCode::KeyJ] {
         if car.ammo.get(&Merch::Banana).unwrap_or(&0) != &0 && keyboard_input.just_pressed(keycode)
         {
-            let mut transform = Transform::from_xyz(car_object.pos.x, car_object.pos.y, 1.0);
+            let mut transform = Transform::from_xyz(car.pos.x, car.pos.y, 1.0);
             transform.scale = Vec3::new(0.04, 0.04, 0.04);
             let angle = if keycode == KeyCode::KeyK {
                 -std::f32::consts::FRAC_PI_2
@@ -975,21 +1022,18 @@ fn detect_shoot_system(
                 std::f32::consts::FRAC_PI_2
             };
             commands.spawn((
-                PartOfLevel,
-                GameObject {
-                    pos: car_object.pos,
-                    draw_scale: 0.05,
-                },
                 SpriteBundle {
                     texture: get_texture(all_sprites.get_single().unwrap(), "banana.png"),
                     transform,
                     ..default()
                 },
                 Projectile {
+                    pos: car.pos,
                     // rotate direction so it shoots from right if J is pressed
                     vel: car.direction.rotate(Vec2::from_angle(angle)) * car.projectile_speed,
                     merch: Merch::Banana,
                 },
+                PartOfLevel,
             ));
             let _map = car.ammo.get_mut(&Merch::Banana).map(|x| {
                 if *x > 0 {
@@ -1002,22 +1046,22 @@ fn detect_shoot_system(
 
 fn detect_projectile_hit(
     mut commands: Commands,
-    projectiles: Query<(Entity, &GameObject, &Projectile)>,
-    customers: Query<(Entity, &GameObject, &Customer)>,
-    obstacles: Query<(Entity, &GameObject, &Obstacle)>,
+    projectiles: Query<(Entity, &Projectile)>,
+    customers: Query<(Entity, &Customer)>,
+    obstacles: Query<(Entity, &Obstacle)>,
 ) {
-    for (projectile_entity, projectile_object, projectile) in &mut projectiles.iter() {
-        for (customer_entity, customer_object, customer) in &mut customers.iter() {
-            if projectile_object.pos.distance(customer_object.pos) < 100. && projectile.merch == customer.wants {
+    for (projectile_entity, projectile) in &mut projectiles.iter() {
+        for (customer_entity, customer) in &mut customers.iter() {
+            if projectile.pos.distance(customer.pos) < 100. && projectile.merch == customer.wants {
                 commands.entity(projectile_entity).despawn();
                 commands.entity(customer_entity).despawn();
             }
         }
     }
 
-    for (projectile_entity, projectile_object, projectile) in &mut projectiles.iter() {
-        for (_obstacle_entity, obstacle_object, obstacle) in &mut obstacles.iter() {
-            if projectile_object.pos.distance(obstacle_object.pos) < 100. {
+    for (projectile_entity, projectile) in &mut projectiles.iter() {
+        for (_obstacle_entity, obstacle) in &mut obstacles.iter() {
+            if projectile.pos.distance(obstacle.pos) < 100. {
                 commands.entity(projectile_entity).despawn();
             }
         }
@@ -1034,25 +1078,31 @@ fn draw_num_ammo(mut ammo_ui_text: Query<(&AmmoUiText, &mut Text)>, car: Query<&
 
 fn check_in_goal(
     mut next_state: ResMut<NextState<AppState>>,
-    car_entity: Query<(&GameObject, &Car)>,
-    goals: Query<(&GameObject, &Goal)>,
+    car: Query<&Car>,
+    goals: Query<&Goal>,
     mut commands: Commands,
     time: Res<Time>,
 ) {
-    if let Ok((car_object, car)) = car_entity.get_single() {
-        for (goal_object, goal) in &goals {
-            if car_object.pos.y > goal_object.pos.y && car_object.pos.distance(goal_object.pos) < goal.radius {
-                next_state.set(AppState::EndLevel {
-                    level: 0,
-                    did_win: true,
-                    time: (time.elapsed_seconds() * 1000.0) as usize
-                        - (car.start_time * 1000.0) as usize,
-                });
-    
-                setup_endlevel(&mut commands, true);
-                break;
-            }
+    let car = car.iter().next().unwrap();
+    for goal in goals.iter() {
+        if car.pos.y > goal.pos.y && car.pos.distance(goal.pos) < goal.radius {
+            next_state.set(AppState::EndLevel {
+                level: 0,
+                did_win: true,
+                time: (time.elapsed_seconds() * 1000.0) as usize
+                    - (car.start_time * 1000.0) as usize,
+            });
+
+            setup_endlevel(&mut commands, true);
+            break;
+        }
     }
+}
+
+fn draw_goals(mut goals: Query<(&Goal, &mut Transform)>, car: Query<&Car>) {
+    let car = car.iter().next().unwrap();
+    for (goal, mut transform) in &mut goals {
+        set_transformation(&mut transform, goal.pos.x, goal.pos.y - car.pos.y, 1.0, car.vel.y);
     }
 }
 
