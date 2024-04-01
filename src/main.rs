@@ -15,6 +15,7 @@ enum AppState {
     EndLevel {
         level: usize,
         did_win: bool,
+        did_finish: bool,
         time: usize,
     },
     StartLevel(usize),
@@ -453,11 +454,13 @@ fn initial_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(all_sprites);
 }
 
-fn setup_endlevel(commands: &mut Commands, did_win: bool) {
+fn setup_endlevel(commands: &mut Commands, did_win: bool, did_finish: bool) {
     let text = if did_win {
-        "You won! Press Space to play again"
+        "You won!"
+    } else if did_finish {
+        "You lost! You didn't deliver to all 10 customers!"
     } else {
-        "You lost! Press Space to play again"
+        "You lost! You crashed!"
     };
 
     // add a text component
@@ -482,6 +485,30 @@ fn setup_endlevel(commands: &mut Commands, did_win: bool) {
         }),
         PartOfEndLevel,
     ));
+
+    // add a text component "Press space to restart"
+    let mut transform = Transform::from_xyz(0., 0., 3.);
+    transform.scale = Vec3::new(0.2, 0.2, 0.2);
+    commands.spawn((
+        // Create a TextBundle that has a Text with a single section.
+        TextBundle::from_section(
+            "Press Space to Restart",
+            TextStyle {
+                font_size: 50.0,
+                color: Color::GOLD,
+                ..Default::default()
+            },
+        )
+        .with_text_justify(JustifyText::Center)
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Percent(60.0),
+            left: Val::Percent(20.0),
+            ..default()
+        }),
+        PartOfEndLevel,
+    ));
+
 }
 
 fn setup_start(commands: &mut Commands, _all_sprites: &AllSprite) {
@@ -794,9 +821,10 @@ fn collision_update_system(
             level: 0,
             did_win: false,
             time: (time.elapsed_seconds() * 1000.0) as usize - (car.start_time * 1000.0) as usize,
+            did_finish: false,
         });
 
-        setup_endlevel(&mut comands, false);
+        setup_endlevel(&mut comands, false, false);
     }
 }
 
@@ -971,18 +999,23 @@ fn check_in_goal(
     goals: Query<&Goal>,
     mut commands: Commands,
     time: Res<Time>,
+    customers: Query<&Customer>,
 ) {
+    let num_customers_left = customers.iter().count();
     let car = car.iter().next().unwrap();
     for goal in goals.iter() {
         if car.pos.y > goal.pos.y && car.pos.distance(goal.pos) < goal.radius {
+            let did_win = num_customers_left == 0;
+
             next_state.set(AppState::EndLevel {
                 level: 0,
-                did_win: true,
+                did_win,
+                did_finish: true,
                 time: (time.elapsed_seconds() * 1000.0) as usize
                     - (car.start_time * 1000.0) as usize,
             });
 
-            setup_endlevel(&mut commands, true);
+            setup_endlevel(&mut commands, did_win, true);
             break;
         }
     }
