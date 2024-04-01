@@ -159,14 +159,24 @@ fn lv1_turns() -> Vec<(usize, f32, f32, Vec<Placement>)> {
     let base_width = 400.0;
     // target
     res.push((3, 0.0, base_width + 300.0, vec![]));
-    res.push((2, 0.0, base_width + 300.0, vec![Placement::Customer { xpos: -500.0 }]));
+    res.push((
+        2,
+        0.0,
+        base_width + 300.0,
+        vec![Placement::Customer { xpos: -500.0 }],
+    ));
     // right
     res.push((20, sharpness_easy, base_width, vec![]));
     // strait
     res.push((20, 0.0, base_width, vec![]));
     // target
     res.push((3, 0.0, base_width + 300.0, vec![]));
-    res.push((2, 0.0*sharpness_easy, base_width + 300.0, vec![Placement::Customer { xpos: 500.0 }]));
+    res.push((
+        2,
+        0.0 * sharpness_easy,
+        base_width + 300.0,
+        vec![Placement::Customer { xpos: 500.0 }],
+    ));
     // left
     res.push((40, -sharpness_easy, base_width, vec![]));
     //back right
@@ -183,12 +193,59 @@ fn lv1_turns() -> Vec<(usize, f32, f32, Vec<Placement>)> {
 
     res.push((50, 0.0, 700.0, vec![]));
 
+    // make next one flush with right wall, leaving gap on left
+    res.push((1, (700.0-500.0)*2.0, 15000.0, vec![]));
     // right
-    res.push((20, sharpness_easy, base_width, vec![]));
-    // go back to middle
-    res.push((0, -sharpness_easy*20.0, base_width, vec![]));
-    // mismatched left
-    res.push((20, -sharpness_easy, base_width, vec![]));
+    res.push((5, sharpness_easy, 500.0, vec![]));
+    // target is outside of the lane
+    res.push((0, 0.0, 0.0, vec![Placement::Customer { xpos: -1500.0 }]));
+    res.push((15, sharpness_easy, base_width, vec![]));
+
+    // strait section
+    res.push((20, 0.0, 600.0, vec![]));
+
+    // make flush with wall but leave gap on right
+    res.push((1, -(600.0-400.0)*2.0, 15000.0, vec![]));
+    // left
+    res.push((5, -sharpness_easy, 400.0, vec![]));
+    // target is outside of the lane
+    res.push((0, 0.0, 0.0, vec![Placement::Customer { xpos: 1500.0 }]));
+    res.push((15, -sharpness_easy, base_width, vec![]));
+
+    let sharper = 50.0;
+    // hard zig zags
+    res.push((15, sharper, base_width, vec![]));
+    res.push((15, -sharper, base_width, vec![]));
+    res.push((15, sharper, base_width, vec![]));
+    res.push((15, -sharper, base_width, vec![]));
+    res.push((15, sharper, base_width, vec![]));
+
+    // strait at the end
+    res.push((10, 0.0, base_width, vec![]));
+
+    // two targets
+    res.push((3, 0.0, base_width + 300.0, vec![]));
+    res.push((1, 0.0, base_width + 300.0, vec![Placement::Customer { xpos: -500.0 }, Placement::Customer { xpos: 500.0 }]));
+    res.push((3, 0.0, base_width + 300.0, vec![]));
+
+    // last strait before goal
+    res.push((10, 0.0, base_width, vec![]));
+    let boxsize = 20;
+    // goal inside a box
+    for i in 0..boxsize {
+        res.push((1, 0.0, base_width+((i as f32) *20.0), vec![]));
+    }
+    let boxw = base_width + ((boxsize as f32)*20.0);
+
+    // goal box middle
+    res.push((10, 0.0, boxw, vec![]));
+    res.push((10, 0.0, boxw, vec![Placement::Goal { xpos: 0.0 }]));
+
+    // end of the box
+    for i in 0..100 {
+        res.push((1, 0.0, boxw-((i as f32)*20.0), vec![]));
+    }
+
     res
 }
 
@@ -235,7 +292,7 @@ fn setup_obstacles(commands: &mut Commands, all_sprites: &AllSprite) {
             match placement {
                 Placement::Customer { xpos: customerx } => {
                     let customer = Customer {
-                        pos: Vec2::new(current_xpos + customerx,  ypos),
+                        pos: Vec2::new(current_xpos + customerx, ypos),
                         wants: Merch::Banana,
                     };
                     let mut transform = Transform::from_xyz(customer.pos.x, customer.pos.y, 1.0);
@@ -249,9 +306,10 @@ fn setup_obstacles(commands: &mut Commands, all_sprites: &AllSprite) {
                         customer.clone(),
                         PartOfLevel,
                     ));
-        
+
                     // spawn a bubble above the car
-                    let mut transform = Transform::from_xyz(customer.pos.x, customer.pos.y + 100., 3.0);
+                    let mut transform =
+                        Transform::from_xyz(customer.pos.x, customer.pos.y + 100., 3.0);
                     transform.scale = Vec3::new(1.0, 1.0, 1.0) * 0.15;
                     let bubble_pos = Vec2::new(customer.pos.x, customer.pos.y + 100.);
                     commands.spawn((
@@ -280,7 +338,6 @@ fn setup_obstacles(commands: &mut Commands, all_sprites: &AllSprite) {
                     ));
                 }
             }
-            
         }
 
         let mut transform = Transform::from_xyz(xpos, HEIGHT_OF_WALL, -1.);
@@ -480,7 +537,7 @@ fn setup_start(commands: &mut Commands, _all_sprites: &AllSprite) {
     commands.spawn((
         // Create a TextBundle that has a Text with a single section.
         TextBundle::from_section(
-            "Use J and K to shoot bananas",
+            "Controls: W, A, D, J, K",
             TextStyle {
                 font_size: 50.0,
                 color: Color::GOLD,
@@ -503,7 +560,7 @@ fn setup_start(commands: &mut Commands, _all_sprites: &AllSprite) {
     commands.spawn((
         // Create a TextBundle that has a Text with a single section.
         TextBundle::from_section(
-            "Everything MUST GO!",
+            "bananas NOW!",
             TextStyle {
                 font_size: 50.0,
                 color: Color::GOLD,
@@ -592,10 +649,9 @@ fn setup_car(commands: &mut Commands, all_sprites: &AllSprite) {
     ));
 }
 
-
 fn setup_level(commands: &mut Commands, all_sprites: &AllSprite) {
     setup_car(commands, all_sprites);
-    setup_obstacles(commands, &all_sprites);
+    setup_obstacles(commands, all_sprites);
 
     commands.spawn((
         // Create a TextBundle that has a Text with a single section.
@@ -728,7 +784,8 @@ fn collision_update_system(
     for obstacle in &obstacles {
         if car.pos.distance(obstacle.pos) < 75. {
             // Game over
-            game_over = true;
+            // TODO bounce
+            //game_over = true;
         }
     }
 
