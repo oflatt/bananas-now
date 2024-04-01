@@ -1,8 +1,6 @@
 //! Renders a 2D scene containing a single, moving sprite.
 
 use bevy::{
-    app::ScheduleRunnerPlugin,
-    audio::Volume,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
     utils::hashbrown::HashMap,
@@ -254,16 +252,17 @@ fn get_texture(all_sprites: &AllSprite, key: &str) -> Handle<Image> {
     all_sprites.map.get(key).unwrap().clone()
 }
 
-fn set_transformation(transform: &mut Transform, x: f32, z: f32, scale: f32, vel: f32) {
-    let theta: f32 = (vel.max(0.0) / 10.0).atan() / 3.0;
-    let denom: f32 = z * theta.sin() + 400.0 * theta.cos();
+fn set_transformation(transform: &mut Transform, pos: &Vec2, scale: f32, car: &Car) {
+    let theta: f32 = (car.vel.y.max(0.) / 10.).atan() / 3.;
+    let denom: f32 = (pos.y - car.pos.y) * theta.sin() + 400. * theta.cos();
+    let car_xpos: f32 = 250. * (car.pos.x / 250.).atan();
     transform.translation = Vec3::new(
-        x / denom * 400.0,
-        (z * theta.cos() - 400.0 * theta.sin()) / denom * (200.0 / 1.428),
-        400.0 / denom,
+        (pos.x - car.pos.x + car_xpos) / denom * 400.,
+        ((pos.y - car.pos.y) * theta.cos() - 400. * theta.sin()) / denom * (200. / 1.428),
+        400. / denom,
     );
-    if denom > 0.0 {
-        transform.scale = 400.0 / denom * Vec3::new(scale, scale * theta.cos(), scale);
+    if denom > 0. {
+        transform.scale = 400. / denom * Vec3::new(scale, scale * theta.cos(), scale);
     } else {
         transform.scale = Vec3::ZERO;
     }
@@ -761,12 +760,11 @@ fn sprite_movement(
 }
 
 fn sprite_draw(
-    mut sprite_position: Query<(&mut Car, &mut Transform, &mut Handle<Image>)>,
-    sprites: Query<&AllSprite>,
+    mut sprite_position: Query<(&Car, &mut Transform)>,
 ) {
-    for (mut car, mut transform, mut texture) in &mut sprite_position {
+    for (car, mut transform) in &mut sprite_position {
         // Update sprite
-        set_transformation(&mut transform, car.pos.x, 0.0, 0.2, car.vel.y);
+        set_transformation(&mut transform, &car.pos, 0.2, &car);
         transform.rotation =
             Quat::from_rotation_z(car.direction.to_angle() - std::f32::consts::FRAC_PI_2);
     }
@@ -790,23 +788,22 @@ fn obstacle_draw(mut obstacles: Query<(&Obstacle, &mut Transform)>, car: Query<&
     for (obstacle, mut transform) in &mut obstacles {
         set_transformation(
             &mut transform,
-            obstacle.pos.x,
-            obstacle.pos.y - car.pos.y,
+            &obstacle.pos,
             0.1,
-            car.vel.y,
+            car,
         );
     }
 }
 
 fn collision_update_system(
     obstacles: Query<&Obstacle>,
-    mut car: Query<&mut Car>,
+    car: Query<&Car>,
     mut next_state: ResMut<NextState<AppState>>,
     mut comands: Commands,
     time: Res<Time>,
     audio: Query<&AudioSink>,
 ) {
-    let mut car = car.single_mut();
+    let car = car.get_single().unwrap();
     let mut game_over = false;
     for obstacle in &obstacles {
         if car.pos.distance(obstacle.pos) < 75. {
@@ -817,6 +814,10 @@ fn collision_update_system(
     }
 
     if game_over {
+        if let Ok(sink) = audio.get_single() {
+            sink.pause();
+        }
+
         next_state.set(AppState::EndLevel {
             level: 0,
             did_win: false,
@@ -837,9 +838,7 @@ fn check_end_to_start(
     to_delete2: Query<Entity, With<PartOfLevel>>,
     mut commands: Commands,
     mut car: Query<&mut Car>,
-    asset_server: Res<AssetServer>,
     sprites: Query<&AllSprite>,
-    audio: Query<&AudioSink>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         for entity in to_delete.iter() {
@@ -856,7 +855,6 @@ fn check_end_to_start(
         }
         setup_start(&mut commands, sprites.get_single().unwrap());
         setup_level(&mut commands, sprites.get_single().unwrap());
-        audio.get_single().unwrap().pause();
     }
 }
 
@@ -884,16 +882,14 @@ fn check_start_level(
 fn customer_draw(
     mut customers: Query<(&Customer, &mut Transform)>,
     car: Query<&Car>,
-    mut bubbles: Query<&mut CustomerBubble>,
 ) {
     let car = car.iter().next().unwrap();
     for (customer, mut transform) in &mut customers {
         set_transformation(
             &mut transform,
-            customer.pos.x,
-            customer.pos.y - car.pos.y,
+            &customer.pos,
             0.1,
-            car.vel.y,
+            car,
         );
     }
 
@@ -913,10 +909,9 @@ fn projectile_draw(mut projectiles: Query<(&Projectile, &mut Transform)>, car: Q
     for (projectile, mut transform) in &mut projectiles {
         set_transformation(
             &mut transform,
-            projectile.pos.x,
-            projectile.pos.y - car.pos.y,
+            &projectile.pos,
             0.05,
-            car.vel.y,
+            car,
         );
     }
 }
@@ -1026,10 +1021,9 @@ fn draw_goals(mut goals: Query<(&Goal, &mut Transform)>, car: Query<&Car>) {
     for (goal, mut transform) in &mut goals {
         set_transformation(
             &mut transform,
-            goal.pos.x,
-            goal.pos.y - car.pos.y,
+            &goal.pos,
             1.0,
-            car.vel.y,
+            car,
         );
     }
 }
