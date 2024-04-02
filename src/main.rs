@@ -83,6 +83,7 @@ struct KillerObstacle;
 #[derive(Component)]
 struct Obstacle {
     pos: Vec2,
+    bounce_dir: f32,
 }
 
 /// Marker to find the text entity so we can update it
@@ -260,7 +261,7 @@ fn get_texture(all_sprites: &AllSprite, key: &str) -> Handle<Image> {
 }
 
 fn set_transformation(transform: &mut Transform, pos: &Vec2, scale: f32, car: &Car) {
-    let theta: f32 = (car.vel.y.max(0.) / 10.).atan() / 3.;
+    let theta: f32 = (car.vel.y.max(0.) / 10.).atan() / 2. + (car.pos.y.max(0.) / 10000.).atan() / 6.;
     let denom: f32 = (pos.y - car.pos.y) * theta.sin() + 400. * theta.cos();
     let car_xpos: f32 = 250. * (car.pos.x / 250.).atan();
     transform.translation = Vec3::new(
@@ -372,6 +373,7 @@ fn setup_obstacles(commands: &mut Commands, all_sprites: &AllSprite) {
                 },
                 Obstacle {
                     pos: Vec2::new(current_xpos + xpos - more_offset, ypos),
+                    bounce_dir: more_offset.signum(),
                 },
                 PartOfLevel,
             ));
@@ -383,6 +385,7 @@ fn setup_obstacles(commands: &mut Commands, all_sprites: &AllSprite) {
                 },
                 Obstacle {
                     pos: Vec2::new(current_xpos + xpos + more_offset, ypos),
+                    bounce_dir: -more_offset.signum(),
                 },
                 PartOfLevel,
             ));
@@ -648,7 +651,7 @@ fn setup_car(commands: &mut Commands, all_sprites: &AllSprite) {
             vel: Vec2::new(0., 0.),
             direction: Vec2::new(0., 1.),
             base_acc: 0.7,
-            top_speed: 120.,
+            top_speed: 80.,
             steer_strength: 0.0012,
             drift_strength: 0.06,
             projectile_speed: 100.0,
@@ -832,19 +835,22 @@ fn hazard_draw(mut hazard: Query<(&Hazard, &mut Transform)>, car: Query<&Car>) {
 
 fn collision_update_system(
     obstacles: Query<&Obstacle>,
-    car: Query<&Car>,
+    mut car: Query<&mut Car>,
     mut next_state: ResMut<NextState<AppState>>,
     mut comands: Commands,
     time: Res<Time>,
     audio: Query<&AudioSink>,
 ) {
-    let car = car.get_single().unwrap();
+    let mut car = car.get_single_mut().unwrap();
     let mut game_over = false;
     for obstacle in &obstacles {
-        if car.pos.distance(obstacle.pos) < 75. {
+        if (obstacle.pos.x - car.pos.x).abs() < 75. && (obstacle.pos.y - car.pos.y).abs() < 1.1 * HEIGHT_OF_WALL {
             // Game over
             // TODO bounce, but game over in hardcore mode
-            game_over = true;
+            // game_over = true;
+            if obstacle.bounce_dir * car.vel.x < 0. {
+                car.vel.x = -1.1 * car.vel.x - 0.15 * obstacle.bounce_dir * car.top_speed;
+            }
         }
     }
 
