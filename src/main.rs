@@ -342,7 +342,7 @@ fn setup_obstacles(commands: &mut Commands, all_sprites: &AllSprite) {
                     let mut transform =
                         Transform::from_xyz(customer.pos.x, customer.pos.y + 100., 3.0);
                     transform.scale = Vec3::new(1.0, 1.0, 1.0) * 0.15;
-                    let bubble_pos = Vec2::new(customer.pos.x, customer.pos.y + 70.0);
+                    let bubble_pos = Vec2::new(customer.pos.x + 100.0, customer.pos.y + 150.0);
                     commands.spawn((
                         SpriteBundle {
                             texture: get_texture(all_sprites, "banana-speech.png"),
