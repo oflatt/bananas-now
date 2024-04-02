@@ -1,9 +1,7 @@
 //! Renders a 2D scene containing a single, moving sprite.
 
 use bevy::{
-    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
-    prelude::*,
-    utils::hashbrown::HashMap,
+    asset::AssetMetaCheck, diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin}, prelude::*, utils::hashbrown::HashMap
 };
 
 const HEIGHT_OF_WALL: f32 = 160.0;
@@ -32,6 +30,10 @@ fn main() {
         fps_text_update_system,
     );
     App::new()
+        // Wasm builds will check for meta files (that don't exist) if this isn't set.
+        // This causes errors and even panics on web build on itch.
+        // See https://github.com/bevyengine/bevy_github_ci_template/issues/48.
+        .insert_resource(AssetMetaCheck::Never)
         .insert_state(AppState::StartLevel(0))
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, initial_setup)
