@@ -22,13 +22,13 @@ enum AppState {
 
 fn main() {
     let draw_level = (
-        sprite_draw,
+        car_draw,
         obstacle_draw,
         hazard_draw,
         customer_draw,
         projectile_draw,
         draw_num_ammo,
-        draw_goals,
+        goal_draw,
         fps_text_update_system,
     );
     App::new()
@@ -276,7 +276,7 @@ fn get_texture(all_sprites: &AllSprite, key: &str) -> Handle<Image> {
     all_sprites.map.get(key).unwrap().clone()
 }
 
-fn set_transformation(transform: &mut Transform, pos: &Vec2, scale: f32, car: &Car) {
+fn set_transformation(transform: &mut Transform, pos: &Vec2, scale: f32, car: &Car, sprite_size: Vec2) {
     let theta: f32 =
         (car.vel.y.max(0.) / 10.).atan() / 2. + (car.pos.y.max(0.) / 10000.).atan() / 6.;
     let denom: f32 = (pos.y - car.pos.y) * theta.sin() + 400. * theta.cos();
@@ -291,6 +291,9 @@ fn set_transformation(transform: &mut Transform, pos: &Vec2, scale: f32, car: &C
     } else {
         transform.scale = Vec3::ZERO;
     }
+    // Re-center
+    transform.translation.x = transform.translation.x - sprite_size.x * transform.scale.x / 2.;
+    transform.translation.y = transform.translation.y - sprite_size.y * transform.scale.y / 2.;
 }
 
 fn setup_obstacles(commands: &mut Commands, all_sprites: &AllSprite) {
@@ -831,12 +834,84 @@ fn sprite_movement(
     }
 }
 
-fn sprite_draw(mut sprite_position: Query<(&Car, &mut Transform)>) {
-    for (car, mut transform) in &mut sprite_position {
-        // Update sprite
-        set_transformation(&mut transform, &car.pos, 0.2, &car);
-        transform.rotation =
-            Quat::from_rotation_z(car.direction.to_angle() - std::f32::consts::FRAC_PI_2);
+// Draw functions
+fn car_draw(
+    mut car_query: Query<(&Car, &mut Transform)>,
+    assets: Res<Assets<Image>>,
+    the_allsprite: Query<&AllSprite>,
+) {
+    if let Some(sprite) = assets.get(get_texture(the_allsprite.get_single().unwrap(), "racecar_center.png")) {
+        for (car, mut transform) in &mut car_query {
+            // Update sprite
+            set_transformation(&mut transform, &car.pos, 0.2, &car, sprite.size_f32());
+            transform.rotation =
+                Quat::from_rotation_z(car.direction.to_angle() - std::f32::consts::FRAC_PI_2);
+        }
+    }
+}
+fn obstacle_draw(
+    mut obstacle_query: Query<(&Obstacle, &mut Transform)>,
+    car: Query<&Car>,
+    assets: Res<Assets<Image>>,
+    the_allsprite: Query<&AllSprite>,
+) {
+    if let Some(sprite) = assets.get(get_texture(the_allsprite.get_single().unwrap(), "static-wall.png")) {
+        let car = car.get_single().unwrap();
+        for (obstacle, mut transform) in &mut obstacle_query {
+            set_transformation(&mut transform, &obstacle.pos, 0.1, car, sprite.size_f32());
+        }
+    }
+}
+fn hazard_draw(
+    mut hazard_query: Query<(&Hazard, &mut Transform)>,
+    car: Query<&Car>,
+    assets: Res<Assets<Image>>,
+    the_allsprite: Query<&AllSprite>,
+) {
+    if let Some(sprite) = assets.get(get_texture(the_allsprite.get_single().unwrap(), "Angry-bougie-cone.png")) {
+        let car = car.get_single().unwrap();
+        for (obstacle, mut transform) in &mut hazard_query {
+            set_transformation(&mut transform, &obstacle.pos, 0.1, car, sprite.size_f32());
+        }
+    }
+}
+fn customer_draw(
+    mut customer_query: Query<(&Customer, &mut Transform)>,
+    car: Query<&Car>,
+    assets: Res<Assets<Image>>,
+    the_allsprite: Query<&AllSprite>,
+) {
+    if let Some(sprite) = assets.get(get_texture(the_allsprite.get_single().unwrap(), "banana-car.png")) {
+        let car = car.get_single().unwrap();
+        for (customer, mut transform) in &mut customer_query {
+            set_transformation(&mut transform, &customer.pos, 0.1, car, sprite.size_f32());
+        }
+    }
+}
+fn projectile_draw(
+    mut projectile_query: Query<(&Projectile, &mut Transform)>,
+    car: Query<&Car>,
+    assets: Res<Assets<Image>>,
+    the_allsprite: Query<&AllSprite>,
+) {
+    if let Some(sprite) = assets.get(get_texture(the_allsprite.get_single().unwrap(), "banana.png")) {
+        let car = car.get_single().unwrap();
+        for (projectile, mut transform) in &mut projectile_query {
+            set_transformation(&mut transform, &projectile.pos, 0.05, car, sprite.size_f32());
+        }
+    }
+}
+fn goal_draw(
+    mut goal_query: Query<(&Goal, &mut Transform)>,
+    car: Query<&Car>,
+    assets: Res<Assets<Image>>,
+    the_allsprite: Query<&AllSprite>,
+) {
+    if let Some(sprite) = assets.get(get_texture(the_allsprite.get_single().unwrap(), "finish.png")) {
+        let car = car.get_single().unwrap();
+        for (goal, mut transform) in &mut goal_query {
+            set_transformation(&mut transform, &goal.pos, 1.0, car, sprite.size_f32());
+        }
     }
 }
 
@@ -853,20 +928,6 @@ fn text_update_system(
                 .floor()
                 / 100.0
         );
-    }
-}
-
-fn obstacle_draw(mut obstacles: Query<(&Obstacle, &mut Transform)>, car: Query<&Car>) {
-    let car = car.iter().next().unwrap();
-    for (obstacle, mut transform) in &mut obstacles {
-        set_transformation(&mut transform, &obstacle.pos, 0.1, car);
-    }
-}
-
-fn hazard_draw(mut hazard: Query<(&Hazard, &mut Transform)>, car: Query<&Car>) {
-    let car = car.iter().next().unwrap();
-    for (obstacle, mut transform) in &mut hazard {
-        set_transformation(&mut transform, &obstacle.pos, 0.1, car);
     }
 }
 
@@ -974,27 +1035,9 @@ fn check_start_level(
     }
 }
 
-fn customer_draw(mut customers: Query<(&Customer, &mut Transform)>, car: Query<&Car>) {
-    let car = car.iter().next().unwrap();
-    for (customer, mut transform) in &mut customers {
-        set_transformation(&mut transform, &customer.pos, 0.1, car);
-    }
-
-    // for mut bubble in &mut bubbles {
-    //     bubble.pos.y = bubble.pos.y - car.pos.y;
-    // }
-}
-
 fn projectile_update(mut projectiles: Query<&mut Projectile>) {
     for mut projectile in &mut projectiles {
         projectile.pos = projectile.pos + projectile.vel;
-    }
-}
-
-fn projectile_draw(mut projectiles: Query<(&Projectile, &mut Transform)>, car: Query<&Car>) {
-    let car = car.iter().next().unwrap();
-    for (projectile, mut transform) in &mut projectiles {
-        set_transformation(&mut transform, &projectile.pos, 0.05, car);
     }
 }
 
@@ -1094,13 +1137,6 @@ fn check_in_goal(
             setup_endlevel(&mut commands, did_win, true, save, car.frames_elapsed);
             break;
         }
-    }
-}
-
-fn draw_goals(mut goals: Query<(&Goal, &mut Transform)>, car: Query<&Car>) {
-    let car = car.iter().next().unwrap();
-    for (goal, mut transform) in &mut goals {
-        set_transformation(&mut transform, &goal.pos, 1.0, car);
     }
 }
 
