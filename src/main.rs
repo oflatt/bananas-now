@@ -193,7 +193,7 @@ fn lv1_turns() -> Vec<(usize, f32, f32, Vec<Placement>)> {
         2,
         0.0 * sharpness_easy,
         base_width + 300.0,
-        vec![Placement::Customer { xpos: 500.0 }],
+        vec![Placement::Customer { xpos: 500.0 }, Placement::HangryCone { xpos: (100.0) }],
     ));
     // left
     res.push((40, -sharpness_easy, base_width, vec![]));
@@ -201,13 +201,13 @@ fn lv1_turns() -> Vec<(usize, f32, f32, Vec<Placement>)> {
     res.push((20, sharpness_easy, base_width, vec![]));
 
     // big area
-    res.push((5, 0.0, 1000.0, vec![]));
+    res.push((5, 0.0, 1000.0, vec![Placement::HangryCone { xpos: (-400.0) }]));
     res.push((0, 0.0, 0.0, vec![Placement::Customer { xpos: -800.0 }]));
     res.push((0, 0.0, 0.0, vec![Placement::Customer { xpos: 800.0 }]));
-    res.push((10, 0.0, 1000.0, vec![]));
+    res.push((10, 0.0, 1000.0, vec![Placement::HangryCone { xpos: (300.0) }]));
     res.push((0, 0.0, 0.0, vec![Placement::Customer { xpos: -800.0 }]));
     res.push((0, 0.0, 0.0, vec![Placement::Customer { xpos: 800.0 }]));
-    res.push((5, 0.0, 1000.0, vec![]));
+    res.push((5, 0.0, 1000.0, vec![Placement::HangryCone { xpos: (-200.0) }]));
 
     res.push((50, 0.0, 700.0, vec![]));
 
@@ -220,7 +220,7 @@ fn lv1_turns() -> Vec<(usize, f32, f32, Vec<Placement>)> {
     res.push((15, sharpness_easy, base_width, vec![]));
 
     // strait section
-    res.push((20, 0.0, 600.0, vec![]));
+    res.push((20, 0.0, 600.0, vec![Placement::HangryCone { xpos: (-100.0) }]));
 
     // make flush with wall but leave gap on right
     res.push((1, -(600.0 - 400.0) * 2.0, 15000.0, vec![]));
@@ -1041,7 +1041,7 @@ fn collision_update_system_hazards(
     let car = car.get_single().unwrap();
     let mut game_over = false;
     for hazard in &hazards {
-        if car.pos.distance(hazard.pos) < 75. * 3. {
+        if car.pos.distance(hazard.pos) < 75. * 2. { // TODO this is the collision radius constant, clean it
             // Makes cone radius larger
             // Game over
             // TODO bounce, but game over in hardcore mode
