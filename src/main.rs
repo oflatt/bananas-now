@@ -116,6 +116,7 @@ struct Car {
     projectile_speed: f32,
     ammo: HashMap<Merch, usize>,
     frames_elapsed: usize,
+    hard_mode: bool,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -612,6 +613,29 @@ fn setup_start(commands: &mut Commands, _all_sprites: &AllSprite) {
         PartOfStart,
     ));
 
+    // make text "press h for hardcore mode"
+    let mut transform = Transform::from_xyz(0., 0., 3.);
+    transform.scale = Vec3::new(0.2, 0.2, 0.2);
+    commands.spawn((
+        // Create a TextBundle that has a Text with a single section.
+        TextBundle::from_section(
+            "Press H for Hardcore Mode",
+            TextStyle {
+                font_size: 50.0,
+                color: Color::GOLD,
+                ..Default::default()
+            },
+        )
+        .with_text_justify(JustifyText::Center)
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Percent(60.0),
+            left: Val::Percent(20.0),
+            ..default()
+        }),
+        PartOfStart,
+    ));
+
     // make text that says "give 10 bananas to 10 customers!"
     let mut transform = Transform::from_xyz(0., 0., 3.);
     transform.scale = Vec3::new(0.2, 0.2, 0.2);
@@ -710,6 +734,7 @@ fn setup_car(commands: &mut Commands, all_sprites: &AllSprite) {
             projectile_speed: 100.0,
             ammo: lv1_ammo(),
             frames_elapsed: 0,
+            hard_mode: false,
         },
         PartOfLevel,
     ));
@@ -958,9 +983,18 @@ fn text_update_system(
     }
 }
 
-fn collision_update_system(obstacles: Query<&Obstacle>, mut car: Query<&mut Car>) {
+fn collision_update_system(
+    obstacles: Query<&Obstacle>,
+    mut car: Query<&mut Car>,
+    mut next_state: ResMut<NextState<AppState>>,
+    mut comands: Commands,
+    time: Res<Time>,
+    audio: Query<&AudioSink>,
+    mut save: Query<&mut SaveData>,
+) {
     let mut car = car.get_single_mut().unwrap();
 
+    let mut game_over = false;
     for obstacle in &obstacles {
         if (obstacle.pos.x - car.pos.x).abs() < 100.
             && (obstacle.pos.y - car.pos.y).abs() < 2. * HEIGHT_OF_WALL
@@ -968,9 +1002,28 @@ fn collision_update_system(obstacles: Query<&Obstacle>, mut car: Query<&mut Car>
         {
             car.vel.x = -0.9 * car.vel.x + 0.15 * obstacle.bounce_dir * car.top_speed;
             car.pos = car.pos + car.vel;
-            car.vel.x = 0.6 * car.vel.x;
-            car.vel.y = 0.3 * car.vel.y;
+            car.vel.x *= 0.6;
+            car.vel.y *= 0.3;
+
+            if car.hard_mode {
+                game_over = true;
+            }
         }
+    }
+
+    if game_over {
+        if let Ok(sink) = audio.get_single() {
+            sink.pause();
+        }
+
+        next_state.set(AppState::EndLevel {
+            level: 0,
+            did_win: false,
+            score: car.frames_elapsed as usize,
+            did_finish: false,
+        });
+
+        setup_endlevel(&mut comands, false, false, save, car.frames_elapsed);
     }
 }
 
@@ -1046,9 +1099,9 @@ fn check_start_level(
     mut commands: Commands,
     audio: Query<&AudioSink>,
     mut car: Query<&mut Car>,
-    time: Res<Time>,
 ) {
-    if keyboard_input.just_pressed(KeyCode::Space) {
+    let h_pressed = keyboard_input.just_pressed(KeyCode::KeyH);
+    if keyboard_input.just_pressed(KeyCode::Space) | h_pressed {
         audio.get_single().unwrap().play();
         for entity in to_delete.iter() {
             commands.entity(entity).despawn();
@@ -1057,6 +1110,7 @@ fn check_start_level(
         // set car start time
         let mut car = car.single_mut();
         car.frames_elapsed = 0;
+        car.hard_mode = keyboard_input.just_pressed(KeyCode::KeyH);
     }
 }
 
