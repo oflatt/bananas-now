@@ -41,6 +41,7 @@ fn main() {
                 sprite_movement,
                 text_update_system,
                 collision_update_system,
+                collision_update_system_hazards, // Cheers Dhruba :)
                 detect_shoot_system,
                 projectile_update,
                 detect_projectile_hit,
@@ -76,9 +77,6 @@ struct PartOfEndLevel;
 
 #[derive(Component)]
 struct TimerText;
-
-#[derive(Component)]
-struct KillerObstacle;
 
 #[derive(Component)]
 struct Obstacle {
@@ -278,18 +276,6 @@ fn set_transformation(transform: &mut Transform, pos: &Vec2, scale: f32, car: &C
 fn setup_obstacles(commands: &mut Commands, all_sprites: &AllSprite) {
     let mut transform = Transform::from_xyz(0., 20., -1.0);
     transform.scale = Vec3::new(0.1, 0.1, 0.1);
-    // place one cone
-    /*commands.spawn((
-        SpriteBundle {
-            texture: asset_server.load("cone.png"),
-            transform,
-            ..default()
-        },
-        Obstacle {
-            pos: Vec2::new(100., 0.),
-        },
-        KillerObstacle,
-    ));*/
 
     let mut ypos = -100.0;
     let mut current_xpos = 0.0;
@@ -863,6 +849,41 @@ fn collision_update_system(
         setup_endlevel(&mut comands, false, false);
     }
 }
+
+fn collision_update_system_hazards(
+    hazards: Query<&Hazard>,
+    car: Query<&Car>,
+    mut next_state: ResMut<NextState<AppState>>,
+    mut comands: Commands,
+    time: Res<Time>,
+    audio: Query<&AudioSink>,
+) {
+    let car = car.get_single().unwrap();
+    let mut game_over = false;
+    for hazard in &hazards {
+        if car.pos.distance(hazard.pos) < 75. * 3. { // Makes cone radius larger
+            // Game over
+            // TODO bounce, but game over in hardcore mode
+            game_over = true;
+        }
+    }
+
+    if game_over {
+        if let Ok(sink) = audio.get_single() {
+            sink.pause();
+        }
+
+        next_state.set(AppState::EndLevel {
+            level: 0,
+            did_win: false,
+            time: (time.elapsed_seconds() * 1000.0) as usize - (car.start_time * 1000.0) as usize,
+            did_finish: false,
+        });
+
+        setup_endlevel(&mut comands, false, false);
+    }
+}
+
 
 // ignore too many arguments
 #[allow(clippy::too_many_arguments)]
