@@ -276,7 +276,13 @@ fn get_texture(all_sprites: &AllSprite, key: &str) -> Handle<Image> {
     all_sprites.map.get(key).unwrap().clone()
 }
 
-fn set_transformation(transform: &mut Transform, pos: &Vec2, scale: f32, car: &Car, sprite_size: Vec2) {
+fn set_transformation(
+    transform: &mut Transform,
+    pos: &Vec2,
+    scale: f32,
+    car: &Car,
+    sprite_size: Vec2,
+) {
     let theta: f32 =
         (car.vel.y.max(0.) / 10.).atan() / 2. + (car.pos.y.max(0.) / 10000.).atan() / 6.;
     let denom: f32 = (pos.y - car.pos.y) * theta.sin() + 400. * theta.cos();
@@ -837,7 +843,10 @@ fn car_draw(
     assets: Res<Assets<Image>>,
     the_allsprite: Query<&AllSprite>,
 ) {
-    if let Some(sprite) = assets.get(get_texture(the_allsprite.get_single().unwrap(), "racecar_center.png")) {
+    if let Some(sprite) = assets.get(get_texture(
+        the_allsprite.get_single().unwrap(),
+        "racecar_center.png",
+    )) {
         for (car, mut transform) in &mut car_query {
             // Update sprite
             set_transformation(&mut transform, &car.pos, 0.2, &car, sprite.size_f32());
@@ -852,7 +861,10 @@ fn obstacle_draw(
     assets: Res<Assets<Image>>,
     the_allsprite: Query<&AllSprite>,
 ) {
-    if let Some(sprite) = assets.get(get_texture(the_allsprite.get_single().unwrap(), "static-wall.png")) {
+    if let Some(sprite) = assets.get(get_texture(
+        the_allsprite.get_single().unwrap(),
+        "static-wall.png",
+    )) {
         let car = car.get_single().unwrap();
         for (obstacle, mut transform) in &mut obstacle_query {
             set_transformation(&mut transform, &obstacle.pos, 0.1, car, sprite.size_f32());
@@ -865,7 +877,10 @@ fn hazard_draw(
     assets: Res<Assets<Image>>,
     the_allsprite: Query<&AllSprite>,
 ) {
-    if let Some(sprite) = assets.get(get_texture(the_allsprite.get_single().unwrap(), "Angry-bougie-cone.png")) {
+    if let Some(sprite) = assets.get(get_texture(
+        the_allsprite.get_single().unwrap(),
+        "Angry-bougie-cone.png",
+    )) {
         let car = car.get_single().unwrap();
         for (obstacle, mut transform) in &mut hazard_query {
             set_transformation(&mut transform, &obstacle.pos, 0.1, car, sprite.size_f32());
@@ -878,7 +893,10 @@ fn customer_draw(
     assets: Res<Assets<Image>>,
     the_allsprite: Query<&AllSprite>,
 ) {
-    if let Some(sprite) = assets.get(get_texture(the_allsprite.get_single().unwrap(), "banana-car.png")) {
+    if let Some(sprite) = assets.get(get_texture(
+        the_allsprite.get_single().unwrap(),
+        "banana-car.png",
+    )) {
         let car = car.get_single().unwrap();
         for (customer, mut transform) in &mut customer_query {
             set_transformation(&mut transform, &customer.pos, 0.1, car, sprite.size_f32());
@@ -891,10 +909,19 @@ fn projectile_draw(
     assets: Res<Assets<Image>>,
     the_allsprite: Query<&AllSprite>,
 ) {
-    if let Some(sprite) = assets.get(get_texture(the_allsprite.get_single().unwrap(), "banana.png")) {
+    if let Some(sprite) = assets.get(get_texture(
+        the_allsprite.get_single().unwrap(),
+        "banana.png",
+    )) {
         let car = car.get_single().unwrap();
         for (projectile, mut transform) in &mut projectile_query {
-            set_transformation(&mut transform, &projectile.pos, 0.05, car, sprite.size_f32());
+            set_transformation(
+                &mut transform,
+                &projectile.pos,
+                0.05,
+                car,
+                sprite.size_f32(),
+            );
         }
     }
 }
@@ -904,7 +931,10 @@ fn goal_draw(
     assets: Res<Assets<Image>>,
     the_allsprite: Query<&AllSprite>,
 ) {
-    if let Some(sprite) = assets.get(get_texture(the_allsprite.get_single().unwrap(), "finish.png")) {
+    if let Some(sprite) = assets.get(get_texture(
+        the_allsprite.get_single().unwrap(),
+        "finish.png",
+    )) {
         let car = car.get_single().unwrap();
         for (goal, mut transform) in &mut goal_query {
             set_transformation(&mut transform, &goal.pos, 1.0, car, sprite.size_f32());
@@ -928,20 +958,18 @@ fn text_update_system(
     }
 }
 
-fn collision_update_system(
-    obstacles: Query<&Obstacle>,
-    mut car: Query<&mut Car>,
-) {
+fn collision_update_system(obstacles: Query<&Obstacle>, mut car: Query<&mut Car>) {
     let mut car = car.get_single_mut().unwrap();
 
     for obstacle in &obstacles {
         if (obstacle.pos.x - car.pos.x).abs() < 100.
             && (obstacle.pos.y - car.pos.y).abs() < 2. * HEIGHT_OF_WALL
+            && obstacle.bounce_dir * car.vel.x < 0.
         {
-            if obstacle.bounce_dir * car.vel.x < 0. {
-                car.vel.x = -0.9 * car.vel.x + 0.15 * obstacle.bounce_dir * car.top_speed;
-                car.vel.y = 0.9 * car.vel.y;
-            }
+            car.vel.x = -0.9 * car.vel.x + 0.15 * obstacle.bounce_dir * car.top_speed;
+            car.pos = car.pos + car.vel;
+            car.vel.x = 0.6 * car.vel.x;
+            car.vel.y = 0.3 * car.vel.y;
         }
     }
 }
