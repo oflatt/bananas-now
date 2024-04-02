@@ -202,7 +202,10 @@ fn lv1_turns() -> Vec<(usize, f32, f32, Vec<Placement>)> {
         2,
         0.0 * sharpness_easy,
         base_width + 300.0,
-        vec![Placement::Customer { xpos: 500.0 }, Placement::HangryCone { xpos: (100.0) }],
+        vec![
+            Placement::Customer { xpos: 500.0 },
+            Placement::HangryCone { xpos: (100.0) },
+        ],
     ));
     // left
     res.push((40, -sharpness_easy, base_width, vec![]));
@@ -210,13 +213,28 @@ fn lv1_turns() -> Vec<(usize, f32, f32, Vec<Placement>)> {
     res.push((20, sharpness_easy, base_width, vec![]));
 
     // big area
-    res.push((5, 0.0, 1000.0, vec![Placement::HangryCone { xpos: (-400.0) }]));
+    res.push((
+        5,
+        0.0,
+        1000.0,
+        vec![Placement::HangryCone { xpos: (-400.0) }],
+    ));
     res.push((0, 0.0, 0.0, vec![Placement::Customer { xpos: -800.0 }]));
     res.push((0, 0.0, 0.0, vec![Placement::Customer { xpos: 800.0 }]));
-    res.push((10, 0.0, 1000.0, vec![Placement::HangryCone { xpos: (300.0) }]));
+    res.push((
+        10,
+        0.0,
+        1000.0,
+        vec![Placement::HangryCone { xpos: (300.0) }],
+    ));
     res.push((0, 0.0, 0.0, vec![Placement::Customer { xpos: -800.0 }]));
     res.push((0, 0.0, 0.0, vec![Placement::Customer { xpos: 800.0 }]));
-    res.push((5, 0.0, 1000.0, vec![Placement::HangryCone { xpos: (-200.0) }]));
+    res.push((
+        5,
+        0.0,
+        1000.0,
+        vec![Placement::HangryCone { xpos: (-200.0) }],
+    ));
 
     res.push((50, 0.0, 700.0, vec![]));
 
@@ -229,7 +247,12 @@ fn lv1_turns() -> Vec<(usize, f32, f32, Vec<Placement>)> {
     res.push((15, sharpness_easy, base_width, vec![]));
 
     // strait section
-    res.push((20, 0.0, 600.0, vec![Placement::HangryCone { xpos: (-100.0) }]));
+    res.push((
+        20,
+        0.0,
+        600.0,
+        vec![Placement::HangryCone { xpos: (-100.0) }],
+    ));
 
     // make flush with wall but leave gap on right
     res.push((1, -(600.0 - 400.0) * 2.0, 15000.0, vec![]));
@@ -547,7 +570,7 @@ fn setup_endlevel(
 ) {
     let text = if did_win {
         let mut save = save.single_mut();
-        save.scores.push(0);
+        save.scores.push(frames_elapsed);
         "You won!"
     } else if did_finish {
         "You lost! You didn't deliver to all 10 customers!"
@@ -609,7 +632,7 @@ fn setup_endlevel(
     save.scores.sort();
     save.scores.reverse();
     for score in save.scores.iter().take(5) {
-        text.push_str(&format!("{}\n", 60.0 * (*score as f64)));
+        text.push_str(&format!("{}\n", (*score as f64) / 60.0));
     }
     commands.spawn((
         // Create a TextBundle that has a Text with a single section.
@@ -1036,10 +1059,7 @@ fn text_update_system(
     for mut text in &mut query {
         text.sections[0].value = format!(
             "Time: {}",
-            ((time.elapsed_seconds() - (car.single().frames_elapsed as f32) * (1.0 / 60.0))
-                * 100.0)
-                .floor()
-                / 100.0
+            (((car.single().frames_elapsed as f32) * (1.0 / 60.0)) * 100.0).floor() / 100.0,
         );
     }
 }
@@ -1100,7 +1120,8 @@ fn collision_update_system_hazards(
     let car = car.get_single().unwrap();
     let mut game_over = false;
     for hazard in &hazards {
-        if car.pos.distance(hazard.pos) < 75. * 2. { // TODO this is the collision radius constant, clean it
+        if car.pos.distance(hazard.pos) < 75. * 2. {
+            // TODO this is the collision radius constant, clean it
             // Makes cone radius larger
             // Game over
             // TODO bounce, but game over in hardcore mode
@@ -1140,9 +1161,6 @@ fn check_end_to_start(
             commands.entity(entity).despawn();
         }
         next_state.set(AppState::StartLevel(0));
-        // set car start time
-        let mut car = car.single_mut();
-        car.frames_elapsed = 0;
 
         // delete things part of the level
         for entity in to_delete.iter().chain(to_delete2.iter()) {
