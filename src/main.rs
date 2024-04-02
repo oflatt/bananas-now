@@ -291,9 +291,6 @@ fn set_transformation(transform: &mut Transform, pos: &Vec2, scale: f32, car: &C
     } else {
         transform.scale = Vec3::ZERO;
     }
-    // Re-center
-    transform.translation.x = transform.translation.x - sprite_size.x * transform.scale.x / 2.;
-    transform.translation.y = transform.translation.y - sprite_size.y * transform.scale.y / 2.;
 }
 
 fn setup_obstacles(commands: &mut Commands, all_sprites: &AllSprite) {
