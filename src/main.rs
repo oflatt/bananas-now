@@ -24,6 +24,7 @@ fn main() {
     let draw_level = (
         sprite_draw,
         obstacle_draw,
+        hazard_draw,
         customer_draw,
         projectile_draw,
         draw_num_ammo,
@@ -95,6 +96,11 @@ struct Goal {
 }
 
 #[derive(Component)]
+struct Hazard {
+    pos: Vec2,
+}
+
+#[derive(Component)]
 struct Car {
     pos: Vec2,
     vel: Vec2, // Velocity is calculated
@@ -143,6 +149,7 @@ fn lv1_ammo() -> HashMap<Merch, usize> {
 enum Placement {
     Customer { xpos: f32 },
     Goal { xpos: f32 },
+    HangryCone { xpos: f32 },
 }
 
 fn lv1_turns() -> Vec<(usize, f32, f32, Vec<Placement>)> {
@@ -167,7 +174,7 @@ fn lv1_turns() -> Vec<(usize, f32, f32, Vec<Placement>)> {
     // right
     res.push((20, sharpness_easy, base_width, vec![]));
     // strait
-    res.push((20, 0.0, base_width, vec![]));
+    res.push((20, 0.0, base_width, vec![Placement::HangryCone { xpos: (0.0) }]));
     // target
     res.push((3, 0.0, base_width + 300.0, vec![]));
     res.push((
@@ -337,6 +344,20 @@ fn setup_obstacles(commands: &mut Commands, all_sprites: &AllSprite) {
                         PartOfLevel,
                     ));
                 }
+                Placement::HangryCone { xpos: cone_xpos } => {
+                    let mut transform = Transform::from_xyz(100., 10000., 2.0);
+                    transform.scale = Vec3::new(1.0, 1.0, 1.0) * 0.2;
+                    commands.spawn((
+                        SpriteBundle {
+                            texture: get_texture(all_sprites, "Angry-bougie-cone.png"),
+                            ..default()
+                        },
+                        Hazard {
+                            pos: Vec2::new(current_xpos + cone_xpos, ypos),
+                        },
+                        PartOfLevel,
+                    ));
+                }
             }
         }
 
@@ -438,6 +459,7 @@ fn initial_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         "banana-car.png",
         "banana-speech.png",
         "static-wall.png",
+        "Angry-bougie-cone.png",
     ];
     let mut all_sprites = AllSprite {
         map: Default::default(),
@@ -794,6 +816,19 @@ fn obstacle_draw(mut obstacles: Query<(&Obstacle, &mut Transform)>, car: Query<&
         );
     }
 }
+
+fn hazard_draw(mut hazard: Query<(&Hazard, &mut Transform)>, car: Query<&Car>) {
+    let car = car.iter().next().unwrap();
+    for (obstacle, mut transform) in &mut hazard {
+        set_transformation(
+            &mut transform,
+            &obstacle.pos,
+            0.1,
+            car,
+        );
+    }
+}
+
 
 fn collision_update_system(
     obstacles: Query<&Obstacle>,
