@@ -14,7 +14,7 @@ enum AppState {
         level: usize,
         did_win: bool,
         did_finish: bool,
-        time: usize,
+        score: usize,
     },
     StartLevel(usize),
     Game,
@@ -65,6 +65,11 @@ fn run_if_in_end_level(state: Res<State<AppState>>) -> bool {
     matches!(state.get(), AppState::EndLevel { .. })
 }
 
+#[derive(Component)]
+struct SaveData {
+    pub scores: Vec<usize>,
+}
+
 // All objects part of the level need this component so they can be despawned
 #[derive(Component)]
 struct PartOfLevel;
@@ -110,7 +115,7 @@ struct Car {
     drift_strength: f32,
     projectile_speed: f32,
     ammo: HashMap<Merch, usize>,
-    start_time: f32,
+    frames_elapsed: usize,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -173,7 +178,12 @@ fn lv1_turns() -> Vec<(usize, f32, f32, Vec<Placement>)> {
     // right
     res.push((20, sharpness_easy, base_width, vec![]));
     // strait
-    res.push((20, 0.0, base_width, vec![Placement::HangryCone { xpos: (0.0) }]));
+    res.push((
+        20,
+        0.0,
+        base_width,
+        vec![Placement::HangryCone { xpos: (0.0) }],
+    ));
     // target
     res.push((3, 0.0, base_width + 300.0, vec![]));
     res.push((
@@ -199,7 +209,7 @@ fn lv1_turns() -> Vec<(usize, f32, f32, Vec<Placement>)> {
     res.push((50, 0.0, 700.0, vec![]));
 
     // make next one flush with right wall, leaving gap on left
-    res.push((1, (700.0-500.0)*2.0, 15000.0, vec![]));
+    res.push((1, (700.0 - 500.0) * 2.0, 15000.0, vec![]));
     // right
     res.push((5, sharpness_easy, 500.0, vec![]));
     // target is outside of the lane
@@ -210,7 +220,7 @@ fn lv1_turns() -> Vec<(usize, f32, f32, Vec<Placement>)> {
     res.push((20, 0.0, 600.0, vec![]));
 
     // make flush with wall but leave gap on right
-    res.push((1, -(600.0-400.0)*2.0, 15000.0, vec![]));
+    res.push((1, -(600.0 - 400.0) * 2.0, 15000.0, vec![]));
     // left
     res.push((5, -sharpness_easy, 400.0, vec![]));
     // target is outside of the lane
@@ -230,7 +240,15 @@ fn lv1_turns() -> Vec<(usize, f32, f32, Vec<Placement>)> {
 
     // two targets
     res.push((3, 0.0, base_width + 300.0, vec![]));
-    res.push((1, 0.0, base_width + 300.0, vec![Placement::Customer { xpos: -500.0 }, Placement::Customer { xpos: 500.0 }]));
+    res.push((
+        1,
+        0.0,
+        base_width + 300.0,
+        vec![
+            Placement::Customer { xpos: -500.0 },
+            Placement::Customer { xpos: 500.0 },
+        ],
+    ));
     res.push((3, 0.0, base_width + 300.0, vec![]));
 
     // last strait before goal
@@ -238,9 +256,9 @@ fn lv1_turns() -> Vec<(usize, f32, f32, Vec<Placement>)> {
     let boxsize = 20;
     // goal inside a box
     for i in 0..boxsize {
-        res.push((1, 0.0, base_width+((i as f32) *20.0), vec![]));
+        res.push((1, 0.0, base_width + ((i as f32) * 20.0), vec![]));
     }
-    let boxw = base_width + ((boxsize as f32)*20.0);
+    let boxw = base_width + ((boxsize as f32) * 20.0);
 
     // goal box middle
     res.push((10, 0.0, boxw, vec![]));
@@ -248,7 +266,7 @@ fn lv1_turns() -> Vec<(usize, f32, f32, Vec<Placement>)> {
 
     // end of the box
     for i in 0..100 {
-        res.push((1, 0.0, boxw-((i as f32)*20.0), vec![]));
+        res.push((1, 0.0, boxw - ((i as f32) * 20.0), vec![]));
     }
 
     res
@@ -259,7 +277,8 @@ fn get_texture(all_sprites: &AllSprite, key: &str) -> Handle<Image> {
 }
 
 fn set_transformation(transform: &mut Transform, pos: &Vec2, scale: f32, car: &Car) {
-    let theta: f32 = (car.vel.y.max(0.) / 10.).atan() / 2. + (car.pos.y.max(0.) / 10000.).atan() / 6.;
+    let theta: f32 =
+        (car.vel.y.max(0.) / 10.).atan() / 2. + (car.pos.y.max(0.) / 10000.).atan() / 6.;
     let denom: f32 = (pos.y - car.pos.y) * theta.sin() + 400. * theta.cos();
     let car_xpos: f32 = 250. * (car.pos.x / 250.).atan();
     transform.translation = Vec3::new(
@@ -326,7 +345,7 @@ fn setup_obstacles(commands: &mut Commands, all_sprites: &AllSprite) {
                         },
                         Goal {
                             pos: Vec2::new(current_xpos + goal_xpos, ypos),
-                            radius: 200.,
+                            radius: 300.,
                         },
                         PartOfLevel,
                     ));
@@ -461,11 +480,24 @@ fn initial_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     setup_fps_counter(&mut commands);
     setup_start(&mut commands, &all_sprites);
     setup_level(&mut commands, &all_sprites);
+    setup_save(&mut commands);
     commands.spawn(all_sprites);
 }
 
-fn setup_endlevel(commands: &mut Commands, did_win: bool, did_finish: bool) {
+fn setup_save(commands: &mut Commands) {
+    commands.spawn((SaveData { scores: vec![] },));
+}
+
+fn setup_endlevel(
+    commands: &mut Commands,
+    did_win: bool,
+    did_finish: bool,
+    mut save: Query<&mut SaveData>,
+    frames_elapsed: usize,
+) {
     let text = if did_win {
+        let mut save = save.single_mut();
+        save.scores.push(0);
         "You won!"
     } else if did_finish {
         "You lost! You didn't deliver to all 10 customers!"
@@ -519,6 +551,35 @@ fn setup_endlevel(commands: &mut Commands, did_win: bool, did_finish: bool) {
         PartOfEndLevel,
     ));
 
+    // Add text component that shows best 5 scores
+    let mut transform = Transform::from_xyz(0., 0., 3.);
+    transform.scale = Vec3::new(0.2, 0.2, 0.2);
+    let mut text = "Best Scores:\n".to_string();
+    let mut save = save.single_mut();
+    save.scores.sort();
+    save.scores.reverse();
+    for score in save.scores.iter().take(5) {
+        text.push_str(&format!("{}\n", 60.0 * (*score as f64)));
+    }
+    commands.spawn((
+        // Create a TextBundle that has a Text with a single section.
+        TextBundle::from_section(
+            text,
+            TextStyle {
+                font_size: 50.0,
+                color: Color::GOLD,
+                ..Default::default()
+            },
+        )
+        .with_text_justify(JustifyText::Center)
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Percent(30.0),
+            left: Val::Percent(20.0),
+            ..default()
+        }),
+        PartOfEndLevel,
+    ));
 }
 
 fn setup_start(commands: &mut Commands, _all_sprites: &AllSprite) {
@@ -642,7 +703,7 @@ fn setup_car(commands: &mut Commands, all_sprites: &AllSprite) {
             drift_strength: 0.06,
             projectile_speed: 100.0,
             ammo: lv1_ammo(),
-            start_time: 0.0,
+            frames_elapsed: 0,
         },
         PartOfLevel,
     ));
@@ -770,9 +831,7 @@ fn sprite_movement(
     }
 }
 
-fn sprite_draw(
-    mut sprite_position: Query<(&Car, &mut Transform)>,
-) {
+fn sprite_draw(mut sprite_position: Query<(&Car, &mut Transform)>) {
     for (car, mut transform) in &mut sprite_position {
         // Update sprite
         set_transformation(&mut transform, &car.pos, 0.2, &car);
@@ -789,7 +848,10 @@ fn text_update_system(
     for mut text in &mut query {
         text.sections[0].value = format!(
             "Time: {}",
-            ((time.elapsed_seconds() - car.single().start_time) * 100.0).floor() / 100.0
+            ((time.elapsed_seconds() - (car.single().frames_elapsed as f32) * (1.0 / 60.0))
+                * 100.0)
+                .floor()
+                / 100.0
         );
     }
 }
@@ -797,40 +859,33 @@ fn text_update_system(
 fn obstacle_draw(mut obstacles: Query<(&Obstacle, &mut Transform)>, car: Query<&Car>) {
     let car = car.iter().next().unwrap();
     for (obstacle, mut transform) in &mut obstacles {
-        set_transformation(
-            &mut transform,
-            &obstacle.pos,
-            0.1,
-            car,
-        );
+        set_transformation(&mut transform, &obstacle.pos, 0.1, car);
     }
 }
 
 fn hazard_draw(mut hazard: Query<(&Hazard, &mut Transform)>, car: Query<&Car>) {
     let car = car.iter().next().unwrap();
     for (obstacle, mut transform) in &mut hazard {
-        set_transformation(
-            &mut transform,
-            &obstacle.pos,
-            0.1,
-            car,
-        );
+        set_transformation(&mut transform, &obstacle.pos, 0.1, car);
     }
 }
-
 
 fn collision_update_system(
     obstacles: Query<&Obstacle>,
     mut car: Query<&mut Car>,
     mut next_state: ResMut<NextState<AppState>>,
     mut comands: Commands,
+    mut save: Query<&mut SaveData>,
     time: Res<Time>,
     audio: Query<&AudioSink>,
 ) {
     let mut car = car.get_single_mut().unwrap();
+
     let mut game_over = false;
     for obstacle in &obstacles {
-        if (obstacle.pos.x - car.pos.x).abs() < 75. && (obstacle.pos.y - car.pos.y).abs() < 1.1 * HEIGHT_OF_WALL {
+        if (obstacle.pos.x - car.pos.x).abs() < 100.
+            && (obstacle.pos.y - car.pos.y).abs() < 1.4 * HEIGHT_OF_WALL
+        {
             // Game over
             // TODO bounce, but game over in hardcore mode
             // game_over = true;
@@ -848,11 +903,11 @@ fn collision_update_system(
         next_state.set(AppState::EndLevel {
             level: 0,
             did_win: false,
-            time: (time.elapsed_seconds() * 1000.0) as usize - (car.start_time * 1000.0) as usize,
+            score: car.frames_elapsed as usize,
             did_finish: false,
         });
 
-        setup_endlevel(&mut comands, false, false);
+        setup_endlevel(&mut comands, false, false, save, car.frames_elapsed);
     }
 }
 
@@ -863,11 +918,13 @@ fn collision_update_system_hazards(
     mut comands: Commands,
     time: Res<Time>,
     audio: Query<&AudioSink>,
+    mut save: Query<&mut SaveData>,
 ) {
     let car = car.get_single().unwrap();
     let mut game_over = false;
     for hazard in &hazards {
-        if car.pos.distance(hazard.pos) < 75. * 3. { // Makes cone radius larger
+        if car.pos.distance(hazard.pos) < 75. * 3. {
+            // Makes cone radius larger
             // Game over
             // TODO bounce, but game over in hardcore mode
             game_over = true;
@@ -882,14 +939,13 @@ fn collision_update_system_hazards(
         next_state.set(AppState::EndLevel {
             level: 0,
             did_win: false,
-            time: (time.elapsed_seconds() * 1000.0) as usize - (car.start_time * 1000.0) as usize,
+            score: car.frames_elapsed as usize,
             did_finish: false,
         });
 
-        setup_endlevel(&mut comands, false, false);
+        setup_endlevel(&mut comands, false, false, save, car.frames_elapsed);
     }
 }
-
 
 // ignore too many arguments
 #[allow(clippy::too_many_arguments)]
@@ -909,7 +965,7 @@ fn check_end_to_start(
         next_state.set(AppState::StartLevel(0));
         // set car start time
         let mut car = car.single_mut();
-        car.start_time = 0.0;
+        car.frames_elapsed = 0;
 
         // delete things part of the level
         for entity in to_delete.iter().chain(to_delete2.iter()) {
@@ -937,22 +993,14 @@ fn check_start_level(
         next_state.set(AppState::Game);
         // set car start time
         let mut car = car.single_mut();
-        car.start_time = time.elapsed_seconds();
+        car.frames_elapsed = 0;
     }
 }
 
-fn customer_draw(
-    mut customers: Query<(&Customer, &mut Transform)>,
-    car: Query<&Car>,
-) {
+fn customer_draw(mut customers: Query<(&Customer, &mut Transform)>, car: Query<&Car>) {
     let car = car.iter().next().unwrap();
     for (customer, mut transform) in &mut customers {
-        set_transformation(
-            &mut transform,
-            &customer.pos,
-            0.1,
-            car,
-        );
+        set_transformation(&mut transform, &customer.pos, 0.1, car);
     }
 
     // for mut bubble in &mut bubbles {
@@ -969,12 +1017,7 @@ fn projectile_update(mut projectiles: Query<&mut Projectile>) {
 fn projectile_draw(mut projectiles: Query<(&Projectile, &mut Transform)>, car: Query<&Car>) {
     let car = car.iter().next().unwrap();
     for (projectile, mut transform) in &mut projectiles {
-        set_transformation(
-            &mut transform,
-            &projectile.pos,
-            0.05,
-            car,
-        );
+        set_transformation(&mut transform, &projectile.pos, 0.05, car);
     }
 }
 
@@ -1052,27 +1095,26 @@ fn draw_num_ammo(mut ammo_ui_text: Query<(&AmmoUiText, &mut Text)>, car: Query<&
 
 fn check_in_goal(
     mut next_state: ResMut<NextState<AppState>>,
-    car: Query<&Car>,
+    car: Query<&mut Car>,
     goals: Query<&Goal>,
     mut commands: Commands,
-    time: Res<Time>,
     customers: Query<&Customer>,
+    save: Query<&mut SaveData>,
 ) {
     let num_customers_left = customers.iter().count();
     let car = car.iter().next().unwrap();
     for goal in goals.iter() {
-        if car.pos.y > goal.pos.y && car.pos.distance(goal.pos) < goal.radius {
+        if car.pos.y > goal.pos.y && (car.pos.x - goal.pos.x).abs() < goal.radius {
             let did_win = num_customers_left == 0;
 
             next_state.set(AppState::EndLevel {
                 level: 0,
                 did_win,
                 did_finish: true,
-                time: (time.elapsed_seconds() * 1000.0) as usize
-                    - (car.start_time * 1000.0) as usize,
+                score: car.frames_elapsed,
             });
 
-            setup_endlevel(&mut commands, did_win, true);
+            setup_endlevel(&mut commands, did_win, true, save, car.frames_elapsed);
             break;
         }
     }
@@ -1081,12 +1123,7 @@ fn check_in_goal(
 fn draw_goals(mut goals: Query<(&Goal, &mut Transform)>, car: Query<&Car>) {
     let car = car.iter().next().unwrap();
     for (goal, mut transform) in &mut goals {
-        set_transformation(
-            &mut transform,
-            &goal.pos,
-            1.0,
-            car,
-        );
+        set_transformation(&mut transform, &goal.pos, 1.0, car);
     }
 }
 
