@@ -873,41 +873,18 @@ fn hazard_draw(mut hazard: Query<(&Hazard, &mut Transform)>, car: Query<&Car>) {
 fn collision_update_system(
     obstacles: Query<&Obstacle>,
     mut car: Query<&mut Car>,
-    mut next_state: ResMut<NextState<AppState>>,
-    mut comands: Commands,
-    mut save: Query<&mut SaveData>,
-    time: Res<Time>,
-    audio: Query<&AudioSink>,
 ) {
     let mut car = car.get_single_mut().unwrap();
 
-    let mut game_over = false;
     for obstacle in &obstacles {
         if (obstacle.pos.x - car.pos.x).abs() < 100.
-            && (obstacle.pos.y - car.pos.y).abs() < 1.4 * HEIGHT_OF_WALL
+            && (obstacle.pos.y - car.pos.y).abs() < 2. * HEIGHT_OF_WALL
         {
-            // Game over
-            // TODO bounce, but game over in hardcore mode
-            // game_over = true;
             if obstacle.bounce_dir * car.vel.x < 0. {
-                car.vel.x = -1.1 * car.vel.x - 0.15 * obstacle.bounce_dir * car.top_speed;
+                car.vel.x = -0.9 * car.vel.x + 0.15 * obstacle.bounce_dir * car.top_speed;
+                car.vel.y = 0.9 * car.vel.y;
             }
         }
-    }
-
-    if game_over {
-        if let Ok(sink) = audio.get_single() {
-            sink.pause();
-        }
-
-        next_state.set(AppState::EndLevel {
-            level: 0,
-            did_win: false,
-            score: car.frames_elapsed as usize,
-            did_finish: false,
-        });
-
-        setup_endlevel(&mut comands, false, false, save, car.frames_elapsed);
     }
 }
 
