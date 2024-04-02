@@ -879,6 +879,7 @@ fn sprite_movement(
     sprites: Query<&AllSprite>,
 ) {
     for (mut car, mut texture) in &mut sprite_position {
+        car.frames_elapsed += 1;
         // Finds the car
         if keyboard_input.pressed(KeyCode::KeyA) {
             // Steering speed depends on speed of the car.
