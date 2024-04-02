@@ -1,7 +1,10 @@
 //! Renders a 2D scene containing a single, moving sprite.
 
 use bevy::{
-    asset::AssetMetaCheck, diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin}, prelude::*, utils::hashbrown::HashMap
+    asset::AssetMetaCheck,
+    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
+    prelude::*,
+    utils::hashbrown::HashMap,
 };
 
 const HEIGHT_OF_WALL: f32 = 160.0;
@@ -28,6 +31,8 @@ fn main() {
         draw_num_ammo,
         goal_draw,
         fps_text_update_system,
+        money_text_update_system,
+        customer_bubble_draw,
     );
     App::new()
         // Wasm builds will check for meta files (that don't exist) if this isn't set.
@@ -96,6 +101,9 @@ struct Obstacle {
 struct FpsText;
 
 #[derive(Component)]
+struct MoneyText;
+
+#[derive(Component)]
 struct Goal {
     pos: Vec2,
     radius: f32,
@@ -119,6 +127,7 @@ struct Car {
     ammo: HashMap<Merch, usize>,
     frames_elapsed: usize,
     hard_mode: bool,
+    money: usize,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -333,7 +342,7 @@ fn setup_obstacles(commands: &mut Commands, all_sprites: &AllSprite) {
                     let mut transform =
                         Transform::from_xyz(customer.pos.x, customer.pos.y + 100., 3.0);
                     transform.scale = Vec3::new(1.0, 1.0, 1.0) * 0.15;
-                    let bubble_pos = Vec2::new(customer.pos.x, customer.pos.y + 100.);
+                    let bubble_pos = Vec2::new(customer.pos.x, customer.pos.y + 70.0);
                     commands.spawn((
                         SpriteBundle {
                             texture: get_texture(all_sprites, "banana-speech.png"),
@@ -454,6 +463,37 @@ fn setup_fps_counter(commands: &mut Commands) {
     ));
 }
 
+fn setup_money_counter(commands: &mut Commands) {
+    // create our UI root node
+    // this is the wrapper/container for the text
+    // create our text
+    commands.spawn((
+        MoneyText,
+        TextBundle {
+            // use two sections, so it is easy to update just the number
+            text: Text::from_sections([TextSection {
+                value: " N/A".into(),
+                style: TextStyle {
+                    font_size: 50.0,
+                    color: Color::GOLD,
+                    // if you want to use your game's font asset,
+                    // uncomment this and provide the handle:
+                    // font: my_font_handle
+                    ..default()
+                },
+            }]),
+            ..Default::default()
+        }
+        .with_text_justify(JustifyText::Left)
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(5.0),
+            right: Val::Px(5.0),
+            ..default()
+        }),
+    ));
+}
+
 fn initial_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
     let mut audio = AudioBundle {
@@ -487,6 +527,7 @@ fn initial_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             .insert(asset.to_string(), asset_server.load(asset));
     }
     setup_fps_counter(&mut commands);
+    setup_money_counter(&mut commands);
     setup_start(&mut commands, &all_sprites);
     setup_level(&mut commands, &all_sprites);
     setup_save(&mut commands);
@@ -737,6 +778,7 @@ fn setup_car(commands: &mut Commands, all_sprites: &AllSprite) {
             ammo: lv1_ammo(),
             frames_elapsed: 0,
             hard_mode: false,
+            money: 0,
         },
         PartOfLevel,
     ));
@@ -882,6 +924,23 @@ fn car_draw(
         }
     }
 }
+
+fn customer_bubble_draw(
+    mut bubble_query: Query<(&CustomerBubble, &mut Transform)>,
+    car: Query<&Car>,
+) {
+    for (bubble, mut transform) in &mut bubble_query {
+        set_transformation(
+            &mut transform,
+            &bubble.pos,
+            0.15,
+            car.get_single().unwrap(),
+            Vec2::ZERO,
+        );
+        transform.translation.z = 20.0;
+    }
+}
+
 fn obstacle_draw(
     mut obstacle_query: Query<(&Obstacle, &mut Transform)>,
     car: Query<&Car>,
@@ -1167,12 +1226,15 @@ fn detect_projectile_hit(
     projectiles: Query<(Entity, &Projectile)>,
     customers: Query<(Entity, &Customer)>,
     obstacles: Query<(Entity, &Obstacle)>,
+    mut car: Query<&mut Car>,
 ) {
+    let mut car = car.single_mut();
     for (projectile_entity, projectile) in &mut projectiles.iter() {
         for (customer_entity, customer) in &mut customers.iter() {
             if projectile.pos.distance(customer.pos) < 200. && projectile.merch == customer.wants {
                 commands.entity(projectile_entity).despawn();
                 commands.entity(customer_entity).despawn();
+                car.money += 1;
             }
         }
     }
@@ -1218,6 +1280,13 @@ fn check_in_goal(
             setup_endlevel(&mut commands, did_win, true, save, car.frames_elapsed);
             break;
         }
+    }
+}
+
+fn money_text_update_system(mut money_text: Query<&mut Text, With<MoneyText>>, car: Query<&Car>) {
+    let car = car.iter().next().unwrap();
+    for mut text in &mut money_text {
+        text.sections[0].value = format!("${}", car.money);
     }
 }
 
