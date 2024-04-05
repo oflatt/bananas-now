@@ -1,7 +1,7 @@
 //! Renders a 2D scene containing a single, moving sprite.
 
 use bevy::{
-    asset::AssetMetaCheck, diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin}, prelude::*, utils::hashbrown::HashMap
+    asset::{self, AssetMetaCheck}, diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin}, prelude::*, utils::hashbrown::HashMap
 };
 
 const HEIGHT_OF_WALL: f32 = 160.0;
@@ -274,6 +274,123 @@ fn lv1_turns() -> Vec<(usize, f32, f32, Vec<Placement>)> {
 
     res
 }
+
+fn lvl2_turns() -> Vec<(usize, f32, f32, Vec<Placement>)> {
+    // (how many blocks to render, x position of those blocks, size of gap, customers (x, y))
+    let base_width = 400.0;
+    let mut res = vec![
+        (10, 0.0, base_width, vec![]),
+        (10, 0.0, base_width, vec![]),
+        (10, 0.0, base_width, vec![]),
+        (10, 0.0, base_width, vec![]),
+    ];
+    let sharpness_easy = 30.0;
+    let base_width = 400.0;
+    // target
+    res.push((3, 0.0, base_width + 300.0, vec![]));
+    res.push((
+        2,
+        0.0,
+        base_width + 300.0,
+        vec![Placement::Customer { xpos: -500.0 }],
+    ));
+    // right
+    res.push((20, sharpness_easy, base_width, vec![]));
+    // strait
+    res.push((
+        20,
+        0.0,
+        base_width,
+        vec![Placement::HangryCone { xpos: (0.0) }],
+    ));
+    // target
+    res.push((3, 0.0, base_width + 300.0, vec![]));
+    res.push((
+        2,
+        0.0 * sharpness_easy,
+        base_width + 300.0,
+        vec![Placement::Customer { xpos: 500.0 }, Placement::HangryCone { xpos: (100.0) }],
+    ));
+    // left
+    res.push((40, -sharpness_easy, base_width, vec![]));
+    //back right
+    res.push((20, sharpness_easy, base_width, vec![]));
+
+    // big area
+    res.push((5, 0.0, 1000.0, vec![Placement::HangryCone { xpos: (-400.0) }]));
+    res.push((0, 0.0, 0.0, vec![Placement::Customer { xpos: -800.0 }]));
+    res.push((0, 0.0, 0.0, vec![Placement::Customer { xpos: 800.0 }]));
+    res.push((10, 0.0, 1000.0, vec![Placement::HangryCone { xpos: (300.0) }]));
+    res.push((0, 0.0, 0.0, vec![Placement::Customer { xpos: -800.0 }]));
+    res.push((0, 0.0, 0.0, vec![Placement::Customer { xpos: 800.0 }]));
+    res.push((5, 0.0, 1000.0, vec![Placement::HangryCone { xpos: (-200.0) }]));
+
+    res.push((50, 0.0, 700.0, vec![]));
+
+    // make next one flush with right wall, leaving gap on left
+    res.push((1, (700.0 - 500.0) * 2.0, 15000.0, vec![]));
+    // right
+    res.push((5, sharpness_easy, 500.0, vec![]));
+    // target is outside of the lane
+    res.push((0, 0.0, 0.0, vec![Placement::Customer { xpos: -1500.0 }]));
+    res.push((15, sharpness_easy, base_width, vec![]));
+
+    // strait section
+    res.push((20, 0.0, 600.0, vec![Placement::HangryCone { xpos: (-100.0) }]));
+
+    // make flush with wall but leave gap on right
+    res.push((1, -(600.0 - 400.0) * 2.0, 15000.0, vec![]));
+    // left
+    res.push((5, -sharpness_easy, 400.0, vec![]));
+    // target is outside of the lane
+    res.push((0, 0.0, 0.0, vec![Placement::Customer { xpos: 1500.0 }]));
+    res.push((15, -sharpness_easy, base_width, vec![]));
+
+    let sharper = 50.0;
+    // hard zig zags
+    res.push((15, sharper, base_width, vec![]));
+    res.push((15, -sharper, base_width, vec![]));
+    res.push((15, sharper, base_width, vec![]));
+    res.push((15, -sharper, base_width, vec![]));
+    res.push((15, sharper, base_width, vec![]));
+
+    // strait at the end
+    res.push((10, 0.0, base_width, vec![]));
+
+    // two targets
+    res.push((3, 0.0, base_width + 300.0, vec![]));
+    res.push((
+        1,
+        0.0,
+        base_width + 300.0,
+        vec![
+            Placement::Customer { xpos: -500.0 },
+            Placement::Customer { xpos: 500.0 },
+        ],
+    ));
+    res.push((3, 0.0, base_width + 300.0, vec![]));
+
+    // last strait before goal
+    res.push((10, 0.0, base_width, vec![]));
+    let boxsize = 20;
+    // goal inside a box
+    for i in 0..boxsize {
+        res.push((1, 0.0, base_width + ((i as f32) * 20.0), vec![]));
+    }
+    let boxw = base_width + ((boxsize as f32) * 20.0);
+
+    // goal box middle
+    res.push((10, 0.0, boxw, vec![]));
+    res.push((10, 0.0, boxw, vec![Placement::Goal { xpos: 0.0 }]));
+
+    // end of the box
+    for i in 0..100 {
+        res.push((1, 0.0, boxw - ((i as f32) * 20.0), vec![]));
+    }
+
+    res
+}
+
 
 fn get_texture(all_sprites: &AllSprite, key: &str) -> Handle<Image> {
     all_sprites.map.get(key).unwrap().clone()
@@ -1037,15 +1154,20 @@ fn collision_update_system_hazards(
     time: Res<Time>,
     audio: Query<&AudioSink>,
     mut save: Query<&mut SaveData>,
+    asset_server: Res<AssetServer>,
 ) {
     let car = car.get_single().unwrap();
     let mut game_over = false;
     for hazard in &hazards {
         if car.pos.distance(hazard.pos) < 75. * 2. { // TODO this is the collision radius constant, clean it
-            // Makes cone radius larger
-            // Game over
-            // TODO bounce, but game over in hardcore mode
             game_over = true;
+
+
+            let mut ouch = AudioBundle {
+                source: asset_server.load("Cone_hit.ogg"),
+                ..default()
+            };
+            comands.spawn(ouch);
         }
     }
 
