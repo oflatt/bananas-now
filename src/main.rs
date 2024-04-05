@@ -426,7 +426,7 @@ fn setup_obstacles(commands: &mut Commands, all_sprites: &AllSprite) {
     let mut ypos = -100.0;
     let mut current_xpos = 0.0;
 
-    for (num, xpos, more_offset, customers) in lv1_turns() {
+    for (num, xpos, more_offset, customers) in lvl2_turns() {
         for placement in customers {
             match placement {
                 Placement::Customer { xpos: customerx } => {
@@ -1110,10 +1110,13 @@ fn collision_update_system(
     time: Res<Time>,
     audio: Query<&AudioSink>,
     mut save: Query<&mut SaveData>,
+    // TODO add keyboard input to reset the game
+    keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
     let mut car = car.get_single_mut().unwrap();
 
     let mut game_over = false;
+
     for obstacle in &obstacles {
         if (obstacle.pos.x - car.pos.x).abs() < 100.
             && (obstacle.pos.y - car.pos.y).abs() < 2. * HEIGHT_OF_WALL
@@ -1128,6 +1131,11 @@ fn collision_update_system(
                 game_over = true;
             }
         }
+    }
+
+    // Check if key 'r' is pressed, reset the game.
+    if keyboard_input.just_pressed(KeyCode::KeyR) {
+        game_over = true;
     }
 
     if game_over {
